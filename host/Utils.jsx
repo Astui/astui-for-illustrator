@@ -1,7 +1,8 @@
 /**
- * @author Scott Lewis <scott@vectoricons.net>
- * @license The MIT License (MIT)
+ * @author    Scott Lewis <scott@atomiclotus.net>
+ * @license   The MIT License (MIT)
  * @copyright 2017 Scott Lewis
+ * @url       https://githubt.com/iconifyit
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,12 +22,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
-/**
- * Lets get started.
- * @type {boolean}
- */
-// $.localize = true;
 
 /**
  * @type {Logger}

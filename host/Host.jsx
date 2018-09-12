@@ -1,13 +1,18 @@
 /**
- * @author Scott Lewis <scott@atomiclotus.net>
- * @copyright 2018 Scott Lewis
- * @version 1.0.0
- * @url http://github.com/iconifyit
- * @url https://atomiclotus.net
+ * @author    Astute Graphics <info@astutegraphics.com>
+ * @copyright 2018 Astute Graphics
+ * @version   1.0.0
+ * @url       https://astutegraphics.com
+ * @url       https://atomiclotus.net
  *
  * ABOUT:
  *
- *    This script is a very basic boilerplate for Adobe CEP extensions.
+ *    Implements the Astui API from Astute Graphics as an Illustrator extension.
+ *
+ * CREDITS:
+ *
+ *   This extension is based on the CEP Boilerplate extension by Scott Lewis
+ *   at Atomic Lotus, LLC.
  *
  * NO WARRANTIES:
  *
@@ -42,11 +47,11 @@ $.localize = true;
   * }}
  */
 var Config = new Configuration({
-    APP_NAME         : 'cep-boilerplate',
+    APP_NAME         : 'astui-for-illustrator',
     USER             : $.getenv('USER'),
     HOME             : $.getenv('HOME'),
     DOCUMENTS        : Folder.myDocuments,
-    LOGFOLDER        : '~/Downloads/cep-boilerplate'
+    LOGFOLDER        : '~/Downloads/astui-for-illustrator'
 });
 
 /**

@@ -1,9 +1,9 @@
 /**
- * @author Scott Lewis <scott@atomiclotus.net>
+ * @author    Scott Lewis <scott@atomiclotus.net>
  * @copyright 2018 Scott Lewis
- * @version 1.0.0
- * @url http://github.com/iconifyit
- * @url https://atomiclotus.net
+ * @version   1.0.0
+ * @url       http://github.com/iconifyit
+ * @url       https://atomiclotus.net
  *
  * ABOUT:
  *
@@ -20,6 +20,7 @@
  *   ANY KIND INCLUDING LOSS OF DATA OR DAMAGE TO HARDWARE OR SOFTWARE. IF YOU DO
  *   NOT AGREE TO THESE TERMS, DO NOT USE THIS SCRIPT.
  */
+
 /**
  * Create a new logger instance.
  * @param name

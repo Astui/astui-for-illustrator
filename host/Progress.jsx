@@ -1,7 +1,8 @@
 /**
- * The MIT License (MIT)
- *
- * Copyright (c) 2017 Scott Lewis
+ * @author    Scott Lewis <scott@atomiclotus.net>
+ * @license   The MIT License (MIT)
+ * @copyright 2017 Scott Lewis
+ * @url       https://githubt.com/iconifyit
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,9 +21,24 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
- *
  */
 
+/**
+ * @type {{
+ *      top: number,
+ *      left: number,
+ *      width: number,
+ *      height: number,
+ *      minvalue: number,
+ *      maxvalue: number,
+ *      window: null,
+ *      panel: null,
+ *      init: Progress.init,
+ *      show: Progress.show,
+ *      update: Progress.update,
+ *      close: Progress.close
+ * }}
+ */
 var Progress = {
 
 	top: 0,

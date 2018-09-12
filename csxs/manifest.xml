@@ -1,11 +1,11 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <ExtensionManifest
-        ExtensionBundleId="com.atomic.cep-boilerplate"
+        ExtensionBundleId="com.astute.astui-illustrator"
         ExtensionBundleVersion="1.0.0"
         Version="7.0"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <ExtensionList>
-        <Extension Id="com.atomic.cep-boilerplate.panel" Version="1.0.0" />
+        <Extension Id="com.astute.astui-illustrator.panel" Version="1.0.0" />
     </ExtensionList>
     <ExecutionEnvironment>
         <HostList>
@@ -19,7 +19,7 @@
         </RequiredRuntimeList>
     </ExecutionEnvironment>
     <DispatchInfoList>
-        <Extension Id="com.atomic.cep-boilerplate.panel">
+        <Extension Id="com.astute.astui-illustrator.panel">
             <DispatchInfo>
                 <Resources>
                     <MainPath>./client/index.html</MainPath>
@@ -31,7 +31,7 @@
                 </Lifecycle>
                 <UI>
                     <Type>Panel</Type>
-                    <Menu>CEP Boilderplate</Menu>
+                    <Menu>Astui for Illustrator</Menu>
                     <Geometry>
                         <Size>
                             <Height>250</Height>

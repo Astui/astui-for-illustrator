@@ -1,13 +1,18 @@
 /**
- * @author Scott Lewis <scott@atomiclotus.net>
- * @copyright 2018 Scott Lewis
- * @version 1.0.0
- * @url http://github.com/iconifyit
- * @url https://atomiclotus.net
+ * @author    Astute Graphics <info@astutegraphics.com>
+ * @copyright 2018 Astute Graphics
+ * @version   1.0.0
+ * @url       https://astutegraphics.com
+ * @url       https://atomiclotus.net
  *
  * ABOUT:
  *
- *    This script is a very basic boilerplate for Adobe CEP extensions.
+ *    Implements the Astui API from Astute Graphics as an Illustrator extension.
+ *
+ * CREDITS:
+ *
+ *   This extension is based on the CEP Boilerplate extension by Scott Lewis
+ *   at Atomic Lotus, LLC.
  *
  * NO WARRANTIES:
  *
@@ -83,26 +88,29 @@ $(function() {
      */
     Client.validate = function(result) {
 
-        Client.info("Validate : " + result);
+        try {
+            var data = JSON.parse(result);
 
-        var data = JSON.parse(result);
+            // Perform whatever validation is needed on the data here.
 
-        // Perform whatever validation is needed on the data here.
+            if (typeof(data) != 'object') {
+                throw "Host did not return a JSON object";
+            }
+            else if (typeof(data.value) == 'undefined') {
+                throw "Host did not return a valid value";
+            }
+            else if (isEmpty(data.value)) {
+                throw "Host returned an empty value";
+            }
 
-        if (typeof(data) != 'object') {
-            throw "Host did not return a JSON object";
+            // Validation passed, return the data value.
+            // I am returning a single value from the JSON
+            // object but you can return the whole object.
+            return data.value;
         }
-        else if (typeof(data.value) == 'undefined') {
-            throw "Host did not return a valid value";
+        catch(e) {
+            throw e.message;
         }
-        else if (isEmpty(data.value)) {
-            throw "Host returned an empty value";
-        }
-
-        // Validation passed, return the data value.
-        // I am returning a single value from the JSON
-        // object but you can return the whole object.
-        return data.value;
     };
 
     /**
