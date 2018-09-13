@@ -34,15 +34,15 @@
                     <Menu>Astui for Illustrator</Menu>
                     <Geometry>
                         <Size>
-                            <Height>250</Height>
+                            <Height>300</Height>
                             <Width>350</Width>
                         </Size>
                         <MaxSize>
-                            <Height>250</Height>
+                            <Height>300</Height>
                             <Width>350</Width>
                         </MaxSize>
                         <MinSize>
-                            <Height>250</Height>
+                            <Height>300</Height>
                             <Width>350</Width>
                         </MinSize>
                     </Geometry>

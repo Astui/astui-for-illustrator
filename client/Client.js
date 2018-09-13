@@ -28,13 +28,50 @@
 
 window.Client = window.Client || {};
 
+var API_ENDPOINT, MY_API_KEY;
+
 $(function() {
 
     var csInterface = new CSInterface();
 
     // Ugly workaround to keep track of "checked" and "enabled" statuses
+
     var checkableMenuItem_isChecked = true;
     var targetMenuItem_isEnabled    = true;
+
+    /**
+     * Get stored settings from Host.
+     */
+    Client.getSettings = function() {
+        csInterface.evalScript("Host.getSettings()", Client.updateSettings);
+    };
+
+    /**
+     * Update local settings values.
+     * @param result
+     */
+    Client.updateSettings = function(result) {
+        console.log(result);
+        try {
+
+            if (typeof(result) != 'undefined') {
+                data = Client.validate(result);
+            }
+
+            console.log(data);
+
+            if (typeof(data.API_ENDPOINT) != 'undefined') {
+                API_ENDPOINT = data.API_ENDPOINT;
+            }
+
+            if (typeof(data.API_KEY) != 'undefined') {
+                MY_API_KEY = data.API_KEY;
+            }
+        }
+        catch(e) {
+            console.error(e);
+        }
+    };
 
     /**
      * Eval a script to run in the JSX host app.
@@ -42,41 +79,6 @@ $(function() {
      */
     Client.eval = function(theScript) {
         csInterface.evalScript(theScript);
-    };
-
-    /**
-     * Show a message in #message element.
-     * @param text
-     */
-    Client.showMessage = function(text) {
-        try {
-            var $message = $("#message");
-            var chars    = text.length;
-            var text     = $.trim(text);
-            var oldText  = $.trim($message.text());
-
-            if (text == "") return;
-            if (strcmp(oldText, text)) return;
-
-            $message.text(text);
-            if (chars > 100) {
-                // In some cases, you might want to put sanity limits on message length.
-            }
-
-            $message.show();
-        }
-        catch(e) {
-            Client.error(e.message);
-        }
-    };
-
-    /**
-     * Clears and hides the palette message block.
-     */
-    Client.clearMessage = function() {
-        var $message = $("#message");
-        $message.text("");
-        $message.hide();
     };
 
     /**
@@ -96,20 +98,23 @@ $(function() {
             if (typeof(data) != 'object') {
                 throw "Host did not return a JSON object";
             }
-            else if (typeof(data.value) == 'undefined') {
+            else if (typeof(data) == 'undefined') {
                 throw "Host did not return a valid value";
             }
-            else if (isEmpty(data.value)) {
+            else if (isEmpty(data)) {
                 throw "Host returned an empty value";
             }
 
-            // Validation passed, return the data value.
-            // I am returning a single value from the JSON
-            // object but you can return the whole object.
-            return data.value;
+            // Validation passed, return the data JSON. The validator
+            // does not know what the specific properties and values
+            // of the data are, it only validates that the data is
+            // not 'undefined' and is not empty.
+
+            return data;
         }
         catch(e) {
-            throw e.message;
+            console.error("Validate error : " + e);
+            throw e;
         }
     };
 
@@ -135,14 +140,13 @@ $(function() {
      */
     Client.init = function(result) {
 
-        var $message = $("#message");
-        var $open    = $("#open-button");
-        var $save    = $("#save-button");
-        var data     = null;
+        var $message   = $("#message");
+        var $button    = $("#button");
+        var $range     = $("#tolerance");
+        var $rangeval  = $("#tolerance-value");
+        var data       = null;
 
-        // Example enabling a disabled button.
-
-        Client.enable($open);
+        $rangeval.text($range.val());
 
         // Client validate should throw an error if the validation fails,
         // or return the expected data if it passes. Wrap the validation
@@ -151,37 +155,98 @@ $(function() {
         try {
 
             if (typeof(result) != 'undefined') {
-                data = Client.validate(result);
+                data = Client.validate(result).value;
             }
 
-            Client.clearMessage();
-            Client.showMessage(data || "This is the first run");
-
-            $open.mouseup(function() {
-                Client.hostMethod("Open button clicked", Client.init);
-                Client.disable($open);
-                $open.blur();
+            $range.change(function(event) {
+                console.log("Tolerance : " + $range.val());
+                $rangeval.text($range.val());
+                $range.blur();
             });
 
-            $save.mouseup(function() {
-                Client.hostMethod("Save button clicked", Client.init);
-                Client.disable($save);
-                $save.blur();
+            $button.mouseup(function(evt) {
+                evt.preventDefault();
+                console.log("Client.processSelection");
+                Client.processSelection( $range.val() );
+                $button.blur();
             });
         }
         catch(e) {
-            // Handle the error however you need to.
-            Client.error(message);
-            Client.showMessage(e.message);
+            console.error(e.message);
         }
+
+        Client.initFlyoutMenu();
+    };
+
+    /**
+     * Process the response from Astui.
+     * @param {JSON} result
+     */
+    Client.ssrCallback = function(result) {
+        try {
+
+            console.log("result : " + result );
+
+            var data = null;
+
+            if (typeof(result) != 'undefined') {
+
+                if (svgData = JSON.parse(result).svg) {
+                    $.post(API_ENDPOINT, function(data) {
+                        console.log(data);
+                    });
+
+                    $.post( API_ENDPOINT, {
+                        body      : result.svg,
+                        tolerance : $("#tolerance").val(),
+                        decimal   : 2,
+                        api_token : MY_API_KEY
+                    })
+                    .done(function(res) {
+                        console.log( "Done : " + res.status );
+                    })
+                    .fail(function(res) {
+                        console.error( "Fail : " + res.status );
+                    })
+                    .always(function(res) {
+                        console.info( "Always : " + res.status );
+                    });
+                }
+                else {
+                    console.error("AJAX call failed");
+                }
+            }
+        }
+        catch(e) {
+            console.error(e);
+        }
+    };
+
+    /**
+     * Call Host.process with tolerance accuracy.
+     * @param tolerance
+     */
+    Client.processSelection = function(tolerance) {
+        csInterface.evalScript(
+            'Host.processSelection("' + tolerance + '")',
+            Client.ssrCallback
+        );
     };
 
     /**
      * Call the csInterface to open session.
      * @param filePath
      */
-    Client.hostMethod = function(someData, theCallback) {
+    Client.publicMethod = function(someData, theCallback) {
         csInterface.evalScript('Host.publicMethod("' + someData + '")', theCallback);
+    };
+
+    /**
+     * Call the csInterface to open session.
+     * @param filePath
+     */
+    Client.alert = function(message) {
+        csInterface.evalScript('Host.showAlert("' + message + '")');
     };
 
     /**
@@ -323,7 +388,6 @@ $(function() {
 
     // Run now
 
+    Client.getSettings();
     Client.init();
-    Client.hostMethod('Initial Run', Client.init);
-    Client.initFlyoutMenu();
 });

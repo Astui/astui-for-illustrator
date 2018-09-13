@@ -191,14 +191,14 @@ Utils.trim = function(str) {
  */
 Utils.logger = function(message, line, filename) {
 
-    if (! CONFIG) {
-        CONFIG = {
-            LOG_FOLDER    : "/var/log/",
-            LOG_FILE_PATH : "/var/log/extendscript-utils-" + Utils.dateFormat(new Date().getTime()) + ".log"
-        }
+    var CONFIG = {
+        LOG_FOLDER    : "~/Downloads/",
+        LOG_FILE_PATH : "~/Downloads/astui-for-illustrator/utils-" + Utils.dateFormat(new Date().getTime()) + ".log"
     }
 
-    message = message + "\n" + $.error + "\n\nSTACK TRACE: \n\n" + $.stack;
+    if ($.error != 'Error') {
+        message = message + "\n" + $.error + "\n\nSTACK TRACE: \n\n" + $.stack;
+    }
 
     try {
         Utils.folder( CONFIG.LOG_FOLDER );
@@ -746,7 +746,7 @@ Utils.getArtboardIndexItemByName = function(itemName) {
         if (doc.selection.length) {
             logger.info("Selected items on artboard " + i);
             if (typeof(doc.selection.name) != "undefined") {
-                logger.inf("Found named selection on artboard " + i);
+                logger.info("Found named selection on artboard " + i);
                 if (doc.selection.name.toUpperCase() == itemName.toUpperCase()) {
                     logger.info("Found item " + itemName + " on artboard " + i);
                     return doc.artboards.getActiveArtboardIndex();
@@ -817,5 +817,21 @@ Utils.showInFinder = function(thePath) {
     }
     catch(e) {
         alert(e);
+    }
+};
+
+/**
+ * Dump an object to the log.
+ * @param what
+ */
+Utils.dump = function(what) {
+    try {
+        Utils.logger(what, $.line, $.fileName);
+        for (key in what) {
+            Utils.logger(key + " => " + what[key], $.line, $.fileName)
+        }
+    }
+    catch(e) {
+        Utils.logger(e.message, $.line, $.fileName);
     }
 };

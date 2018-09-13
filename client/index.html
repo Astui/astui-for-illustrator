@@ -42,15 +42,23 @@
         <link rel="stylesheet" href="theme/style.css">
     </head>
     <body>
-        <section class="messages">
-            <div id="message" class="info"></div>
-        </section>
-        <section class="content">
 
+        <section class="content">
+            <label for="tolerance">Set your Smart Point Removal tolerance:</label>
+            <input type="range"
+                   name="tolerance"
+                   id="tolerance"
+                   class="topcoat-range"
+                   min="1"
+                   max="100"
+                   value="30"
+                   step="1"
+                   />
+            <p id="tolerance-value"></p>
+            <p><small>Hint: a minimum tolerance of 1 maintains the path shape but removes very few points. The maximum tolerance of 100 removes many more points but can distort the shape. Try starting with a tolerance of 30 for good results.</small></p>
         </section>
         <section class="buttons">
-            <button id="open-button" class="topcoat-button--large--cta" disabled>Open</button>
-            <button id="save-button" class="topcoat-button--large">Save</button>
+            <button id="button" class="topcoat-button--large--cta">Optimize Selection</button>
         </section>
         <!--scripts-->
         <script>if (typeof module === 'object')  { window.module = module; module = undefined; }</script>
