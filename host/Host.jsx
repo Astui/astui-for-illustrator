@@ -70,7 +70,7 @@ var Host = (function(Config) {
      * The local scope logger object.
      * @type {Logger}
      */
-    var _logger   = new Logger(Config.get('APP_NAME'), Config.get('LOGFOLDER'));
+    var _logger   = new Logger(Config.get('APP_NAME'), Config.get('LOGFOLDER'), LogLevel.INFO);
     var _exporter = new Exporter();
 
     /**
@@ -133,7 +133,7 @@ var Host = (function(Config) {
             throw errorMessage;
         }
 
-        return doc.selection[0];
+        return doc.selection;
     };
 
     /*
@@ -155,74 +155,36 @@ var Host = (function(Config) {
      * @returns {*}
      * @private
      */
-    function _processSelection(accuracy) {
+    function _processSelection() {
 
         var ts,
-            doc,
-            exporter,
-            selection,
-            fileName,
-            result;
+            filepath,
+            svgFile,
+            svgData;
 
         ts = (new Date()).getTime();
-
-        doc = app.activeDocument;
+        filepath = "~/Downloads/astui-for-illustrator/astui-test-" + ts + ".svg";
 
         try {
-            selection = _verifySelection();
+            svgFile = _exporter.selectionToSVG(
+                _verifySelection(),
+                filepath
+            );
 
-            Utils.dump({"selection": selection});
+            Utils.logger("_verifySelection : " + _verifySelection);
+            Utils.logger("filepath : " + filepath);
+            Utils.logger("svgFile : " + svgFile);
 
-            fileName = "~/Downloads/astui-for-illustrator/astui-test-" + ts + ".svg";
-
-            _exporter.selectionToSVG(doc.selection, fileName);
-
-            result = Utils.read_file(fileName);
-
+            if (typeof(svgFile) == 'object') {
+                svgData = Utils.read_file(svgFile);
+            }
         }
         catch(e) {
             result = {value: e.message};
             _logger.error(e.message);
         }
 
-        return JSON.stringify({svg: result});
-    };
-
-    /**
-     * NOTE: This is not working. Copies SVG of selection to clipboard
-     * but pastes the object even if the textRange is selected.
-     */
-    function copyPasteSelection() {
-        menuCommand = _doMenuCommand("kCopyCommandStr", true);
-        Utils.logger(menuCommand.result);
-
-        result = menuCommand.result;
-
-        var doc = app.activeDocument;
-
-        var newLayer = doc.layers.add();
-        newLayer.name = "SVG_Code";
-
-        var textBox = newLayer.textFrames.areaText(
-            newLayer.pathItems.rectangle( 500, 100, 400, 100 )
-        );
-        textBox.paragraphs.add("@PLACEHOLDER@");
-        try {
-            // doc.selection = null;
-            app.executeMenuCommand("deselectall");
-            textBox.selected = true;
-            textBox.textRange.select(true);
-
-            // _doMenuCommand("kPasteCommandStr", true);
-        }
-        catch(e) {
-            _logger.error(e.message);
-        }
-
-        // txtBox.contents = this.exportSettings.toXML().toXMLString();
-
-        // this.smartExportPrefs.printable = false;
-        // this.smartExportPrefs.visible = false;
+        return JSON.stringify({svg: svgData});
     };
 
     /**
@@ -281,12 +243,10 @@ var Host = (function(Config) {
 
         /**
          * Call private _callToApi method.
-         * @param body
-         * @param accuracy
          * @returns {*}
          */
-        processSelection: function(accuracy) {
-            return _processSelection(accuracy);
+        processSelection: function() {
+            return _processSelection();
         },
 
         /**

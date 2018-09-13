@@ -26,7 +26,7 @@
 /**
  * @type {Logger}
  */
-var logger = new Logger($.fileName, "~/Downloads/");
+var logger = new Logger($.fileName, "~/Downloads/", LogLevel.INFO);
 
 /**
  * Our base object.
@@ -282,14 +282,16 @@ Utils.write_json_file = function( path, json, replace ) {
 
 /**
  * Reads the contents of a file.
- * @param   {string}  filepath
+ * @param   {string|File}  theFile
  * @returns {string}
  */
-Utils.read_file = function( filepath ) {
+Utils.read_file = function( theFile ) {
 
     var content = "";
 
-    var theFile = new File(filepath);
+    if (typeof(theFile) != 'object') {
+        theFile = new File(theFile);
+    }
 
     if (theFile) {
 

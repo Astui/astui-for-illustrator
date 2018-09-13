@@ -22,12 +22,28 @@
  */
 
 /**
+ * Log levels.
+ * @type {{INFO: number, WARN: number, ERROR: number}}
+ */
+var LogLevel = {
+    INFO  : 1,
+    WARN  : 2,
+    ERROR : 3
+};
+
+/**
  * Create a new logger instance.
  * @param name
  * @param folder
  * @constructor
  */
-function Logger(name, folder) {
+function Logger(name, folder, logLevel) {
+
+    if (typeof(logLevel) == 'undefined') {
+        logLevel = LogLevel.ERROR
+    }
+
+    this.logLevel = logLevel;
 
     /**
      * Default settings for the logger.
@@ -110,7 +126,7 @@ Logger.prototype = {
      * @param message
      */
     info : function(message) {
-        this.log(message, this.types.INFO);
+        this.log(message, this.types.INFO, LogLevel.INFO);
     },
 
     /**
@@ -118,7 +134,7 @@ Logger.prototype = {
      * @param message
      */
     warn : function(message) {
-        this.log(message, this.types.WARN);
+        this.log(message, this.types.WARN, LogLevel.WARN);
     },
 
     /**
@@ -126,14 +142,15 @@ Logger.prototype = {
      * @param message
      */
     error : function(message) {
-        this.log(message, this.types.ERROR);
+        this.log(message, this.types.ERROR, LogLevel.ERROR);
     },
 
     /**
      * Add message to log.
      * @param message
      */
-    log : function(message, type) {
+    log : function(message, type, level) {
+        if (level < this.logLevel) return;
         Utils.write_file(
             this.file.absoluteURI,
             "[" + this.types[type] + "][" + new Date().toUTCString() + "] " + message

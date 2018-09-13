@@ -22,7 +22,7 @@ var MenuCommand = function(kCommandStr, runImmediately) {
      * Logger object
      * @type {Logger}
      */
-    this.logger = new Logger(command_id, "~/Downloads/astui-for-illustrator/" + command_id);
+    this.logger = new Logger(command_id, "~/Downloads/astui-for-illustrator/" + command_id, LogLevel.INFO);
 
     /**
      * Available Menu commands

@@ -167,7 +167,7 @@ $(function() {
             $button.mouseup(function(evt) {
                 evt.preventDefault();
                 console.log("Client.processSelection");
-                Client.processSelection( $range.val() );
+                Client.processSelection();
                 $button.blur();
             });
         }
@@ -228,7 +228,7 @@ $(function() {
      */
     Client.processSelection = function(tolerance) {
         csInterface.evalScript(
-            'Host.processSelection("' + tolerance + '")',
+            'Host.processSelection()',
             Client.ssrCallback
         );
     };
