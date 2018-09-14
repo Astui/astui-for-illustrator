@@ -74,20 +74,6 @@ var Host = (function(Config) {
     var _exporter = new Exporter();
 
     /**
-     * Private, local function.
-     */
-    function _privateMethod(someData) {
-
-        // Write to the Host's logger output.
-        Host.logger.info(someData);
-
-        // Do something cool.
-        return JSON.stringify({
-            "value": "The Host received the message : '" + someData + "'"
-        });
-    };
-
-    /**
      *
      * @returns {string}
      */
@@ -166,22 +152,24 @@ var Host = (function(Config) {
         filepath = "~/Downloads/astui-for-illustrator/astui-test-" + ts + ".svg";
 
         try {
+            selection = _verifySelection();
             svgFile = _exporter.selectionToSVG(
-                _verifySelection(),
+                selection,
                 filepath
             );
-
-            Utils.logger("_verifySelection : " + _verifySelection);
-            Utils.logger("filepath : " + filepath);
-            Utils.logger("svgFile : " + svgFile);
 
             if (typeof(svgFile) == 'object') {
                 svgData = Utils.read_file(svgFile);
             }
         }
         catch(e) {
-            result = {value: e.message};
-            _logger.error(e.message);
+            _logger.error("[" + $.fileName + "][" + $.line + "] - SVG export failed - " + e.message);
+            _logger.error("[" + $.fileName + "][" + $.line + "] - svgFile : "   + svgFile);
+            _logger.error("[" + $.fileName + "][" + $.line + "] - svgData : "   + svgData);
+            _logger.error("[" + $.fileName + "][" + $.line + "] - filepath : "  + filepath);
+            _logger.error("[" + $.fileName + "][" + $.line + "] - selection : " + selection);
+            _logger.error("[" + $.fileName + "][" + $.line + "] - $.stack : "   + $.stack);
+            return JSON.stringify({value: e.message});
         }
 
         return JSON.stringify({svg: svgData});
@@ -193,11 +181,9 @@ var Host = (function(Config) {
      * @private
      */
     function _getSettings() {
-        var Settings = JSON.stringify(Utils.read_json_file(
+        return JSON.stringify(Utils.read_json_file(
             "~/Documents/astui-for-illustrator/settings.json"
         )) ;
-        _logger.info(Settings);
-        return Settings;
     };
 
     /**
@@ -223,14 +209,6 @@ var Host = (function(Config) {
          * The exporter class.
          */
         exporter : _exporter,
-
-        /**
-         * Public function.
-         * @returns {*}
-         */
-        publicMethod: function(someData) {
-            return _privateMethod(someData);
-        },
 
         /**
          * Execute a Menu Command.

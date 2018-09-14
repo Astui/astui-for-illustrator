@@ -245,11 +245,9 @@ Exporter.prototype.exportFile = function(selection, filepath, exportType, export
 
     try {
         targetFile = new File(filepath);
-        this.logger.info("Yay! " + targetFile);
     }
     catch(e) {
-        this.logger.error("Oops. " + e.message);
-        this.logger.error("Oops. filepath : " + filepath);
+        throw "[" + $.fileName + "][" + $.line + "] - Target file not created - " + e.message ;
     }
 
     doc = this.createDocument(1024, 1024, DocumentColorSpace.RGB);
@@ -269,9 +267,9 @@ Exporter.prototype.exportFile = function(selection, filepath, exportType, export
         doc.close(SaveOptions.DONOTSAVECHANGES);
     }
     else {
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - SVG export failed - " + e.message );
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - svgExportOptions : "  + svgExportOptions );
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - filepath : "          + filepath );
+        this.logger.error("[" + $.fileName + "][" + $.line + "] - SVG export failed - " + e.message);
+        this.logger.error("[" + $.fileName + "][" + $.line + "] - svgExportOptions : "  + svgExportOptions);
+        this.logger.error("[" + $.fileName + "][" + $.line + "] - filepath : "          + filepath);
         this.logger.error("[" + $.fileName + "][" + $.line + "] - selection : "         + selection);
         this.logger.error("[" + $.fileName + "][" + $.line + "] - targetFile : "        + targetFile);
         throw "[" + $.fileName + "][" + $.line + "] - Target file was not created . " + e.message;

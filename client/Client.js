@@ -51,14 +51,10 @@ $(function() {
      * @param result
      */
     Client.updateSettings = function(result) {
-        console.log(result);
         try {
-
             if (typeof(result) != 'undefined') {
                 data = Client.validate(result);
             }
-
-            console.log(data);
 
             if (typeof(data.API_ENDPOINT) != 'undefined') {
                 API_ENDPOINT = data.API_ENDPOINT;
