@@ -61,14 +61,19 @@ var Config = new Configuration({
 /**
  * Supported Ai Object types for this script.
  * @type {string[]}
- * @private
  */
-var _supportedTypes = [
+var supportedTypes = [
     "groupitem",
     "pageitem",
     "compoundpathitem",
     "pathitem"
 ];
+
+/**
+ * Used for temporary storage of objects.
+ * @type {{}}
+ */
+var __GLOBALS = {};
 
 /**
  * Run the script using the Module patter.
@@ -104,10 +109,10 @@ var Host = (function(Config) {
 
         var errorMessage;
 
-        if (typeof(app) == 'undefined') {
+        if (! isDefined(app)) {
             errorMessage = 'App is not defined';
         }
-        else if (typeof(app.documents) == 'undefined') {
+        else if (! isDefined(app.documents)) {
             errorMessage = 'App.documents is not defined';
         }
         else if (app.documents.length == 0) {
@@ -116,14 +121,14 @@ var Host = (function(Config) {
 
         var doc = app.activeDocument;
 
-        if (typeof(doc.selection) == 'undefined') {
+        if (! isDefined(doc.selection)) {
             errorMessage = 'doc.selection is not defined';
         }
         else if (doc.selection.length == 0) {
             errorMessage = 'Nothing selected';
         }
 
-        if (typeof(errorMessage) == 'string') {
+        if (isString(errorMessage)) {
             alert(errorMessage);
             throw errorMessage;
         }
@@ -144,55 +149,71 @@ var Host = (function(Config) {
         10. Update UI with result message.
      */
 
+    function _loadExternalObject() {
+        try {
+            if (new ExternalObject("lib:\PlugPlugExternalObject")) {
+                _logger.info("[new ExternalObject(\"lib:\\PlugPlugExternalObject\")]");
+                return true;
+            }
+        }
+        catch (e) {
+            _logger.info("[_loadExternalObject() ... catch(e)] " + e.message);
+            throw e;
+        }
+    }
+
     /**
      * Private method for processing the selected SVG path.
-     * @param accuracy
+     * @param   {string}    callbackEventType
      * @returns {*}
      * @private
      */
-    function _processSelection() {
+    function _processSelection(callbackEventType) {
 
-        var ns,
-            SVG,
-            uuid,
-            nodes,
-            svgFile,
-            svgData,
-            filepath,
+        var uuid,
             errorMessage;
 
-        uuid = Utils.uuid(8);
-
-        filepath = Config.LOGFOLDER + "/" + Config.APP_NAME + "-" + uuid + ".svg";
+        uuid = Utils.uuid();
 
         try {
             if (selection = _verifySelection()) {
-                if (svgFile = _exporter.selectionToSVG(selection, filepath)) {
-                    if (isObject(svgFile)) {
-                        svgData = Utils.read(svgFile);
 
-                        try {
-                            var xLib = new ExternalObject("lib:\PlugPlugExternalObject");
-                        }
-                        catch (e) {
-                            Utils.logger(e.message);
-                        }
+                for (var iter in selection) {
 
-                        if ( xLib ) {
-                            Utils.logger( "xLib loaded, creating custom event" );
-                            var eventObj = new CSXSEvent();
-                            eventObj.type = "clientCall";
-                            eventObj.data = "some payload data...";
-                            eventObj.dispatch();
-                        }
+                    var thisItem = selection[iter];
 
+                    // Ignore member functions.
+                    if (isFunction( thisItem ) ) continue;
+
+                    // Ignore unsupported typenames.
+                    if (! isSupported(thisItem.typename)) {
+                        _logger.info("Unsupported type - `" + thisItem.typename + "`");
+                        continue;
+                    }
+
+                    _logger.info("[DEBUG] " + typeof(thisItem) + "." + thisItem.typename);
+
+                    if (isPathItem(thisItem)) {
+                        _logger.info("[isPathItem(thisItem)]");
+
+                        __GLOBALS[uuid] = thisItem;
+
+                        if ( _loadExternalObject() ) {
+                            var theCustomEvent = _getNewCSEvent(
+                                callbackEventType,
+                                JSON.stringify({ uuid: uuid, path: pathItemToSVG(thisItem) })
+                            );
+                            Utils.dump(theCustomEvent);
+                            theCustomEvent.dispatch();
+                        }
+                    }
+                    else if (isCompoundPathItem(thisItem)) {
+                        // TODO: Not yet implemented
+                        _logger.error("isCompoundPathItem is not yet implemented");
                     }
                     else {
-                        "Could not read SVG file";
+                        continue;
                     }
-                }
-                else {
-                    errrorMessage = "Could save selection to SVG";
                 }
             }
             else {
@@ -204,7 +225,55 @@ var Host = (function(Config) {
             _logger.error(errorMessage);
         }
 
-        return JSON.stringify({svg: svgData, error: errorMessage, filepath: filepath});
+        // return JSON.stringify({svg: svgData, error: errorMessage, filepath: filepath});
+        return errorMessage || "Host.processSelection completed";
+    };
+
+    /**
+     * Create a new CSXSEvent.
+     * @param   {string}    eventType
+     * @param   {*}         data
+     * @returns {CSXSEvent}
+     * @private
+     */
+    function _getNewCSEvent(type, data) {
+        var event  = new CSXSEvent();
+        event.type = type;
+        event.data = data;
+        return event;
+    }
+
+    /**
+     * Update the PathItem with modified points data from Astui.
+     * @param pathData
+     */
+    function _updatePathData(pathData) {
+
+        var uuid,
+            theItem,
+            pathDataObject;
+
+        _logger.info("[_updatePathData(pathData)] " + pathData);
+        try {
+            Utils.logger( " ******* Utils.dump(pathData); ******* " );
+            Utils.dump(pathData);
+
+            if (pathDataObject = JSON.parse(pathData)) {
+                if (theItem = Utils.get(__GLOBALS, pathDataObject.uuid, false)) {
+                    // setPathItemFromSVG(theItem, pathDataObject.path);
+                    theItem.setEntirePath(svgToPathPointArray(pathDataObject.path));
+                }
+                else {
+                    throw new Error("[_updatePathData(pathData)] failed");
+                }
+            }
+        }
+        catch(e) {
+            _logger.error("[_updatePathData(pathData)] " + e.message);
+            return "[_updatePathData(pathData)] " + e.message;
+        }
+
+        return "Host.updatePathData completed";
     };
 
     /**
@@ -291,10 +360,20 @@ var Host = (function(Config) {
 
         /**
          * Call private _callToApi method.
+         * @param   {string}    callbackEventType The name of the custom CSXS event to trigger.
          * @returns {*}
          */
-        processSelection: function() {
-            return _processSelection();
+        processSelection: function(callbackEventType) {
+            return _processSelection(callbackEventType);
+        },
+
+        /**
+         * Call private method to update path data for selected path.
+         * @param thePathData
+         * @returns {string}
+         */
+        updatePathData : function(thePathData) {
+            return _updatePathData(thePathData);
         },
 
         /**

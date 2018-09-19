@@ -54,8 +54,9 @@ $(function() {
      * @param result
      */
     Client.updateSettings = function(result) {
+        console.info(result);
         try {
-            if (typeof(result) != 'undefined') {
+            if (isDefined(result)) {
                 data = Client.validate(result);
             }
 
@@ -74,7 +75,7 @@ $(function() {
             }
         }
         catch(e) {
-            console.error(e);
+            throw "[Client.updateSettings] " + e.message;
         }
     };
 
@@ -96,30 +97,32 @@ $(function() {
      */
     Client.validate = function(result) {
         var data;
+
+        console.info("[Client.validate(result)] " + result);
+
         try {
             if (! isString(result)) {
-                throw "Host returned an unknown data type";
+                console.log("[Client.validate() ... isString(result)] " + result);
+                throw "Host returned an unknown data type : " + typeof(result);
             }
 
             if (isErrorString(result)) {
-                throw result;
+                console.log("[Client.validate() ... isErrorString(result)] " + result);
+                throw "[isErrorString] " + result;
             }
 
             data = JSON.parse(result);
 
-            if (isDefined(data)) {
-                throw "Host did not return a valid value";
-            }
-            else if (isEmpty(data)) {
-                throw "Host returned an empty value";
-            }
-            else if (isObject(data)) {
+            console.log("[data = JSON.parse(result)] " + result);
+            console.log("[typeof(isDefined)] " + typeof(isDefined));
+
+            if (! isObject(data)) {
+                console.log("[Client.validate() ... isObject(data)] " + JSON.stringify(data));
                 throw "Host did not return a JSON object";
             }
         }
         catch(e) {
-            console.error("Client.validate() error : " + e);
-            throw e;
+            throw "[Client.validate() ... catch(e)] " + e;
         }
         return data;
     };
@@ -141,10 +144,9 @@ $(function() {
     };
 
     /**
-     * Initialize the HTML UI or update with result from a JSX script callback.
-     * @param {*} result
+     * Initialize the HTML UI.
      */
-    Client.init = function(result) {
+    Client.init = function() {
 
         var $message   = $("#message");
         var $button    = $("#button");
@@ -154,15 +156,7 @@ $(function() {
 
         $rangeval.text($range.val());
 
-        // Client validate should throw an error if the validation fails,
-        // or return the expected data if it passes. Wrap the validation
-        // call in a try/catch block to trap errors.
-
         try {
-
-            if (typeof(result) != 'undefined') {
-                data = Client.validate(result).value;
-            }
 
             $range.change(function(event) {
                 console.log("Tolerance : " + $range.val());
@@ -176,80 +170,86 @@ $(function() {
                 Client.processSelection();
                 $button.blur();
             });
-        }
-        catch(e) {
-            console.error(e.message);
-        }
 
-        Client.initFlyoutMenu();
+            Client.initFlyoutMenu();
+        }
+        catch(e) { throw "[Client.init] " + e.message; }
     };
 
     /**
-     * Process the response from Astui.
-     * @param {JSON} result
+     * Create Astui data payload string.
+     * @param   {string}    svgPathData
+     * @param   {integer}   accuracy
+     * @returns {string}
      */
-    Client.sendPathPointToAstui = function(result) {
+    Client.formatAstuiPayload = function(svgPathData, accuracy ) {
+        return "path="    + svgPathData +
+            "&accuracy="  + accuracy +
+            "&api_token=" + Config.MY_API_KEY +
+            "&decimal=1";
+    };
 
-        var $svg,
-            payload;
+    /**
+     * Send the SVG path data to Astui.
+     * @param {CSXSEvent} event  The SVG-formatted path data.
+     */
+    Client.sendPathPointToAstui = function(csxsEvent) {
 
-        console.log("Client.sendPathPointToAstui called");
+        console.log(typeof(csxsEvent));
+        console.log(csxsEvent);
+
+        if (isString(csxsEvent)) {
+            csxsEvent = JSON.parse(csxsEvent);
+        }
 
         try {
+            if (svgPathData = csxsEvent.data.path) {
 
-            // console.log( "result : " + JSON.stringify(result) );
+                var uuid = csxsEvent.data.uuid;
 
-            if (typeof(result) != 'undefined') {
+                // { uuid: Utils.uuid(), path: pathItemToSVG(thisItem) }
 
-                if (svgPathData = Client.validate(result)) {
+                console.log("Client.sendPathPointToAstui called with data (" + svgPathData + ")");
+                console.log("[astui.payload] " + Client.formatAstuiPayload(svgPathData, $("#tolerance").val()) );
 
-                    svgData = svgData.svg;
-
-                    $svg = $.parseXML(svgData);
-
-                    $("path", $svg).each(function(i) {
-                        var $path = $(this);
-                        console.log($path.attr("d"));
-
-                        payload = "path=" + $("path", $svg).attr("d") +
-                            "&accuracy=" + $("#tolerance").val() +
-                            "&api_token=" + Config.MY_API_KEY +
-                            "&decimal=1";
-
-                        // console.info( "ajaxData : " + payload );
-
-                        var $jqxhr = $.ajax({
-                            method  : "POST",
-                            url     : Config.API_ENDPOINT,
-                            data    : payload,
-                            headers : {
-                                "Content-Type"  : "application/x-www-form-urlencoded",
-                                "Cache-Control" : "no-cache",
-                                "Accept"        : "application/json, text/plain, */*"
-                            }
-                        })
-                        .done(function(result) {
-                            // console.log( " ========== Done ========== " );
-                            // console.log( result.path );
-                        })
-                        .fail(function(result) {
-                            Client.write( Config.COMMON_LOG, "[Client.processSelectionHandler] " + result.responseText, true );
-                        });
-                    });
-                }
-                else {
-                    console.error("AJAX call failed");
-                }
+                $.ajax({
+                    method  : "POST",
+                    url     : Config.API_ENDPOINT,
+                    data    : Client.formatAstuiPayload(svgPathData, $("#tolerance").val()),
+                    headers : {
+                        "Content-Type"  : "application/x-www-form-urlencoded",
+                        "Cache-Control" : "no-cache",
+                        "Accept"        : "application/json, text/plain, */*"
+                    }
+                })
+                .done(function(result) {
+                    console.log( " ========== Done ========== " );
+                    console.log( JSON.stringify(result) );
+                    console.log(result);
+                    Client.updatePathDataCallback(JSON.stringify({
+                        uuid: csxsEvent.data.uuid,
+                        path: result.path
+                    }));
+                })
+                .fail(function(result) {
+                    Client.write( Config.COMMON_LOG, "[Client.sendPathPointToAstui] " + result, true );
+                });
             }
         }
         catch(e) {
             console.error(e);
         }
-
     };
 
-    Client.updatePathDataCallback = function(result) {
-
+    /**
+     * Update the path data for the selected item.
+     * @param result
+     */
+    Client.updatePathDataCallback = function(newPathData) {
+        Client.info("[Client.updatePathDataCallback] " + newPathData);
+        console.log("[Client.updatePathDataCallback] " + newPathData);
+        console.log(newPathData);
+        csInterface.evalScript( "Host.updatePathData('" + newPathData + "')", Client.info );
     };
 
     /**
@@ -258,7 +258,7 @@ $(function() {
      */
     Client.processSelection = function() {
         csInterface.addEventListener( 'processPathPoint', Client.sendPathPointToAstui );
-        csInterface.evalScript( 'Host.processSelection()' );
+        csInterface.evalScript( 'Host.processSelection("processPathPoint")', Client.info );
     };
 
     /**

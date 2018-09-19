@@ -35,7 +35,7 @@
  * @private
  */
 function isSupported(theType) {
-    if (! isDefined(supportedTypes)) {
+    if (typeof(supportedTypes) == 'undefined') {
         throw "You must create a global array named `supportedTypes` with the supported type names";
     }
     return supportedTypes.indexOf(theType.toLowerCase()) >= 0;
@@ -147,8 +147,8 @@ function isCompoundPathItem(theItem) {
  * @returns {boolean}
  * @private
  */
-function isDefined(property) {
-    return ! isType(property, 'undefined');
+function isDefined(theItem) {
+    return typeof(theItem) != 'undefined';
 }
 
 /**
