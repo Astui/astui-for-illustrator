@@ -28,7 +28,10 @@
 
 window.Client = window.Client || {};
 
-var API_ENDPOINT, MY_API_KEY;
+var MY_API_KEY,
+    API_ENDPOINT;
+
+var Config = window.Config || {};
 
 $(function() {
 
@@ -56,12 +59,18 @@ $(function() {
                 data = Client.validate(result);
             }
 
+            for (key in data) {
+                Config[key] = data[key];
+            }
+
             if (typeof(data.API_ENDPOINT) != 'undefined') {
                 API_ENDPOINT = data.API_ENDPOINT;
+                Config.API_ENDPOINT = data.API_ENDPOINT;
             }
 
             if (typeof(data.API_KEY) != 'undefined') {
                 MY_API_KEY = data.API_KEY;
+                Config.MY_API_KEY = data.API_KEY;
             }
         }
         catch(e) {
@@ -82,36 +91,37 @@ $(function() {
      * to make sure it is in the expected format. All results are
      * returned as a string. I recommend using stringified JSON
      * as a common format between Host and Client.
-     * @param data
+     * @param   {string}    result       The result returned from csInterface call.
+     * @returns {Object}
      */
     Client.validate = function(result) {
-
+        var data;
         try {
-            var data = JSON.parse(result);
-
-            // Perform whatever validation is needed on the data here.
-
-            if (typeof(data) != 'object') {
-                throw "Host did not return a JSON object";
+            if (! isString(result)) {
+                throw "Host returned an unknown data type";
             }
-            else if (typeof(data) == 'undefined') {
+
+            if (isErrorString(result)) {
+                throw result;
+            }
+
+            data = JSON.parse(result);
+
+            if (isDefined(data)) {
                 throw "Host did not return a valid value";
             }
             else if (isEmpty(data)) {
                 throw "Host returned an empty value";
             }
-
-            // Validation passed, return the data JSON. The validator
-            // does not know what the specific properties and values
-            // of the data are, it only validates that the data is
-            // not 'undefined' and is not empty.
-
-            return data;
+            else if (isObject(data)) {
+                throw "Host did not return a JSON object";
+            }
         }
         catch(e) {
-            console.error("Validate error : " + e);
+            console.error("Client.validate() error : " + e);
             throw e;
         }
+        return data;
     };
 
     /**
@@ -178,34 +188,53 @@ $(function() {
      * Process the response from Astui.
      * @param {JSON} result
      */
-    Client.ssrCallback = function(result) {
+    Client.sendPathPointToAstui = function(result) {
+
+        var $svg,
+            payload;
+
+        console.log("Client.sendPathPointToAstui called");
+
         try {
 
-            console.log("result : " + result );
-
-            var data = null;
+            // console.log( "result : " + JSON.stringify(result) );
 
             if (typeof(result) != 'undefined') {
 
-                if (svgData = JSON.parse(result).svg) {
-                    $.post(API_ENDPOINT, function(data) {
-                        console.log(data);
-                    });
+                if (svgPathData = Client.validate(result)) {
 
-                    $.post( API_ENDPOINT, {
-                        body      : result.svg,
-                        tolerance : $("#tolerance").val(),
-                        decimal   : 2,
-                        api_token : MY_API_KEY
-                    })
-                    .done(function(res) {
-                        console.log( "Done : " + res.status );
-                    })
-                    .fail(function(res) {
-                        console.error( "Fail : " + res.status );
-                    })
-                    .always(function(res) {
-                        console.info( "Always : " + res.status );
+                    svgData = svgData.svg;
+
+                    $svg = $.parseXML(svgData);
+
+                    $("path", $svg).each(function(i) {
+                        var $path = $(this);
+                        console.log($path.attr("d"));
+
+                        payload = "path=" + $("path", $svg).attr("d") +
+                            "&accuracy=" + $("#tolerance").val() +
+                            "&api_token=" + Config.MY_API_KEY +
+                            "&decimal=1";
+
+                        // console.info( "ajaxData : " + payload );
+
+                        var $jqxhr = $.ajax({
+                            method  : "POST",
+                            url     : Config.API_ENDPOINT,
+                            data    : payload,
+                            headers : {
+                                "Content-Type"  : "application/x-www-form-urlencoded",
+                                "Cache-Control" : "no-cache",
+                                "Accept"        : "application/json, text/plain, */*"
+                            }
+                        })
+                        .done(function(result) {
+                            // console.log( " ========== Done ========== " );
+                            // console.log( result.path );
+                        })
+                        .fail(function(result) {
+                            Client.write( Config.COMMON_LOG, "[Client.processSelectionHandler] " + result.responseText, true );
+                        });
                     });
                 }
                 else {
@@ -216,25 +245,20 @@ $(function() {
         catch(e) {
             console.error(e);
         }
+
+    };
+
+    Client.updatePathDataCallback = function(result) {
+
     };
 
     /**
-     * Call Host.process with tolerance accuracy.
+     * Call Host.processSelection().
      * @param tolerance
      */
-    Client.processSelection = function(tolerance) {
-        csInterface.evalScript(
-            'Host.processSelection()',
-            Client.ssrCallback
-        );
-    };
-
-    /**
-     * Call the csInterface to open session.
-     * @param filePath
-     */
-    Client.publicMethod = function(someData, theCallback) {
-        csInterface.evalScript('Host.publicMethod("' + someData + '")', theCallback);
+    Client.processSelection = function() {
+        csInterface.addEventListener( 'processPathPoint', Client.sendPathPointToAstui );
+        csInterface.evalScript( 'Host.processSelection()' );
     };
 
     /**
@@ -243,6 +267,69 @@ $(function() {
      */
     Client.alert = function(message) {
         csInterface.evalScript('Host.showAlert("' + message + '")');
+    };
+
+    /**
+     * Pass-thru function to Host to read a file.
+     * @param filePath
+     */
+    Client.read = function(filePath) {
+        csInterface.evalScript("Host.read('" + filePath + "')", Client.readHandler);
+    };
+
+    /**
+     * Callback handler for Host.read() pass-thru.
+     * @param result
+     */
+    Client.readHandler = function(result) {
+        console.log("Client.readHandler result : " + result);
+        return;
+        try {
+            if (typeof(result) != 'undefined') {
+                // data = Client.validate(result).content;
+                console.log("Client.readHandler data : " + result);
+            }
+            else {
+                console.log("Client.readHandler result is undefined");
+            }
+        }
+        catch (e) {
+            console.error("Client.readHandler : " + e.message );
+        }
+    };
+
+    /**
+     * Pass-thru function to Host to write a file.
+     * @param txt
+     * @param filePath
+     */
+    Client.write = function(filePath, txt, replace) {
+        var replace = replace ? replace : false ;
+        csInterface.evalScript(
+            "Host.write('" + filePath + "', '" + txt + "', '" + replace +  "')",
+            Client.writeHandler
+        );
+    };
+
+    /**
+     * Callback handler for Host.write() pass-thru.
+     * @param result
+     */
+    Client.writeHandler = function(result) {
+        console.log("Client.writeHandler result : " + result);
+        return;
+        try {
+            if (typeof(result) != 'undefined') {
+                // data = Client.validate(result).result;
+                console.log("Client.writeHandler data : " + result);
+            }
+            else {
+                console.log("Client.writeHandler result is undefined");
+            }
+        }
+        catch(e) {
+            console.error("Client.writeHandler : " + e.message);
+        }
     };
 
     /**

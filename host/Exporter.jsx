@@ -29,6 +29,13 @@
 var Exporter = function(){};
 
 /**
+ * Not implemented error string.
+ * @type {string}
+ * @private
+ */
+Exporter.prototype._notImplemented = "Not yet implemented";
+
+/**
  * Attach a logger class.
  * @type {Logger}
  */
@@ -159,7 +166,7 @@ Exporter.prototype.svgExportOptions = function() {
  * @returns {File}
  */
 Exporter.prototype.selectionToPNG = function(selection, filePath) {
-    throw "Not yet implemented";
+    throw this._notImplemented;
 };
 
 /**
@@ -169,7 +176,25 @@ Exporter.prototype.selectionToPNG = function(selection, filePath) {
  * @returns {File}
  */
 Exporter.prototype.selectionToJPG = function(selection, filePath) {
-    throw "Not yet implemented";
+    throw this._notImplemented;
+};
+
+/**
+ * Export layer to SVG.
+ * @param selection
+ * @param filePath
+ */
+Exporter.prototype.layerToSVG = function(layer, filePath) {
+    throw this._notImplemented;
+};
+
+/**
+ * Export artboard to SVG.
+ * @param artboard
+ * @param filePath
+ */
+Exporter.prototype.artboardToSVG = function(artboard, filePath) {
+    throw this._notImplemented;
 };
 
 /**
@@ -179,19 +204,18 @@ Exporter.prototype.selectionToJPG = function(selection, filePath) {
  * @returns {File}
  */
 Exporter.prototype.selectionToPDF = function(selection, filePath) {
-    throw "Not yet implemented";
+    throw this._notImplemented;
 };
 
-/*
- * Export selection to SVG - export_selection_as_SVG
- * (Adapted from Layers to SVG 0.1 - layers_export.jsx, by Anton Ball)
- *
- * @author Rhys van der Waerden
- */
 /**
  * Export a selection to SVG.
  * @param {selection} selection The app.activeDocument.selection object.
  * @param {string}    filePath  The file path to save the document to.
+ *
+ * Export selection to SVG - export_selection_as_SVG
+ * (Adapted from Layers to SVG 0.1 - layers_export.jsx, by Anton Ball)
+ * @author  Rhys van der Waerden
+ * @url     https://gist.github.com/SebCorbin/4af974231068ed4ab457
  */
 Exporter.prototype.selectionToSVG = function(selection, filepath) {
 

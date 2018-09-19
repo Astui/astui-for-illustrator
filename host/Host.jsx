@@ -33,17 +33,14 @@
 
 $.localize = true;
 
-#include "Logger.jsx"
-#include "JSON.jsx"
-#include "Utils.jsx"
+#include "Logger.jsx";
+#include "JSON.jsx";
+#include "Helpers.jsx";
+#include "Utils.jsx";
 #include "Configuration.jsx";
 #include "FileSystem.jsx";
 #include "MenuCommand.jsx";
 #include "Exporter.jsx";
-// #include "SmartRemovePoint.jsx";
-
-var API_ENDPOINT = "https://agtechapi.astute.graphics/path/clean";
-var MY_API_KEY   = "MLeT6kPZWZgOqHGXXo5lF3LjS6MOUP7Tsc7AUlCWLHfvlpcr92xuxM6Gq63I";
 
 /**
  * @type {{
@@ -60,6 +57,18 @@ var Config = new Configuration({
     DOCUMENTS        : Folder.myDocuments,
     LOGFOLDER        : '~/Downloads/astui-for-illustrator'
 });
+
+/**
+ * Supported Ai Object types for this script.
+ * @type {string[]}
+ * @private
+ */
+var _supportedTypes = [
+    "groupitem",
+    "pageitem",
+    "compoundpathitem",
+    "pathitem"
+];
 
 /**
  * Run the script using the Module patter.
@@ -143,36 +152,59 @@ var Host = (function(Config) {
      */
     function _processSelection() {
 
-        var ts,
-            filepath,
+        var ns,
+            SVG,
+            uuid,
+            nodes,
             svgFile,
-            svgData;
+            svgData,
+            filepath,
+            errorMessage;
 
-        ts = (new Date()).getTime();
-        filepath = "~/Downloads/astui-for-illustrator/astui-test-" + ts + ".svg";
+        uuid = Utils.uuid(8);
+
+        filepath = Config.LOGFOLDER + "/" + Config.APP_NAME + "-" + uuid + ".svg";
 
         try {
-            selection = _verifySelection();
-            svgFile = _exporter.selectionToSVG(
-                selection,
-                filepath
-            );
+            if (selection = _verifySelection()) {
+                if (svgFile = _exporter.selectionToSVG(selection, filepath)) {
+                    if (isObject(svgFile)) {
+                        svgData = Utils.read(svgFile);
 
-            if (typeof(svgFile) == 'object') {
-                svgData = Utils.read_file(svgFile);
+                        try {
+                            var xLib = new ExternalObject("lib:\PlugPlugExternalObject");
+                        }
+                        catch (e) {
+                            Utils.logger(e.message);
+                        }
+
+                        if ( xLib ) {
+                            Utils.logger( "xLib loaded, creating custom event" );
+                            var eventObj = new CSXSEvent();
+                            eventObj.type = "clientCall";
+                            eventObj.data = "some payload data...";
+                            eventObj.dispatch();
+                        }
+
+                    }
+                    else {
+                        "Could not read SVG file";
+                    }
+                }
+                else {
+                    errrorMessage = "Could save selection to SVG";
+                }
+            }
+            else {
+                errorMessage = "Could not verify selection object";
             }
         }
         catch(e) {
-            _logger.error("[" + $.fileName + "][" + $.line + "] - SVG export failed - " + e.message);
-            _logger.error("[" + $.fileName + "][" + $.line + "] - svgFile : "   + svgFile);
-            _logger.error("[" + $.fileName + "][" + $.line + "] - svgData : "   + svgData);
-            _logger.error("[" + $.fileName + "][" + $.line + "] - filepath : "  + filepath);
-            _logger.error("[" + $.fileName + "][" + $.line + "] - selection : " + selection);
-            _logger.error("[" + $.fileName + "][" + $.line + "] - $.stack : "   + $.stack);
-            return JSON.stringify({value: e.message});
+            errorMessage = e.message;
+            _logger.error(errorMessage);
         }
 
-        return JSON.stringify({svg: svgData});
+        return JSON.stringify({svg: svgData, error: errorMessage, filepath: filepath});
     };
 
     /**
@@ -181,9 +213,11 @@ var Host = (function(Config) {
      * @private
      */
     function _getSettings() {
-        return JSON.stringify(Utils.read_json_file(
-            "~/Documents/astui-for-illustrator/settings.json"
+        var Settings = JSON.stringify(Utils.read_json(
+            Config.DOCUMENTS + "/" + Config.APP_NAME + "/settings.json"
         )) ;
+        Config.update(Settings);
+        return Settings;
     };
 
     /**
@@ -209,6 +243,42 @@ var Host = (function(Config) {
          * The exporter class.
          */
         exporter : _exporter,
+
+        /**
+         * Host interface to Utils.read()
+         * @param   {string} filePath Path of the file to read.
+         * @returns {JSON}
+         */
+        read: function(filePath) {
+            var result = { content: "" };
+            try {
+                result.content = Utils.read(filePath);
+            }
+            catch(e) {
+                result.content = e.message;
+            }
+            return JSON.stringify(result);
+        },
+
+        /**
+         * Host interface to Utils.write()
+         * @param filePath
+         * @param txt
+         * @param replace
+         * @returns {*}
+         */
+        write: function(filePath, txt, replace) {
+            if (! isDefined(replace)) replace = true;
+
+            var result = { result: "" };
+            try {
+                result.result = Utils.write(filePath, txt, replace);
+            }
+            catch(e) {
+                result.result = e.message;
+            }
+            return JSON.stringify(result);
+        },
 
         /**
          * Execute a Menu Command.

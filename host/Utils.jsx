@@ -58,7 +58,7 @@ Utils.displayAlertsOn = function() {
  * @param   {*}               dfault
  * @returns {*}
  */
-Utils.get = function( subject, key, dfault ) {
+Utils.get = function(subject, key, dfault) {
     var value = dfault;
     if (subject.hasOwnProperty(key)) {
         value = subject[key];
@@ -116,7 +116,7 @@ Utils.chooseFile = function(oFile, title, file_filter) {
         title,
         file_filter,
         false
-    );
+   );
 };
 
 /**
@@ -148,7 +148,7 @@ Utils.window = function(type, title, width, height) {
     var dialog = new Window(
         type, title,
         [0, 0, width, height]
-    );
+   );
     dialog.center();
     return dialog;
 };
@@ -160,7 +160,7 @@ Utils.window = function(type, title, width, height) {
  * @param {int}      compatibility  The Adobe Illustrator format (version)
  * @return void
  */
-Utils.saveFileAsAi = function( doc, path, compatibility ) {
+Utils.saveFileAsAi = function(doc, path, compatibility) {
     if (app.documents.length > 0) {
         var theDoc  = new File(path);
         var options = new IllustratorSaveOptions();
@@ -201,7 +201,7 @@ Utils.logger = function(message, line, filename) {
     }
 
     try {
-        Utils.folder( CONFIG.LOG_FOLDER );
+        Utils.folder(CONFIG.LOG_FOLDER);
         Utils.write_file(CONFIG.LOG_FILE_PATH, "[" + new Date().toUTCString() + "] " + message);
     }
     catch(ex) {
@@ -210,18 +210,30 @@ Utils.logger = function(message, line, filename) {
 };
 
 /**
- * Logging for this script.
+ * @deprecated Use `Utils.write` instead.
+ * Writes text to a file.
  * @param {string}  path        The file path
  * @param {string}  txt         The text to write
  * @param {bool}    replace     Replace the file
  * @return void
  */
-Utils.write_file = function( path, txt, replace ) {
+Utils.write_file = function(path, txt, replace) {
+    return Utils.write(path, txt, replace);
+};
+
+/**
+ * Writes text to a file.
+ * @param {string}  path        The file path
+ * @param {string}  txt         The text to write
+ * @param {bool}    replace     Replace the file
+ * @return void
+ */
+Utils.write = function(path, txt, replace) {
     try {
-        var file = new File( path );
+        var file = new File(path);
         if (replace && file.exists) {
             file.remove();
-            file = new File( path );
+            file = new File(path);
         }
         file.open("e", "TEXT", "????");
         file.seek(0,2);
@@ -230,10 +242,16 @@ Utils.write_file = function( path, txt, replace ) {
         file.close();
     }
     catch(ex) {
-        try { file.close(); }
-        catch(ex) {/* Exit Gracefully*/}
+        try {
+            file.close();
+        }
+        catch(ex) {
+            Utils.logger(ex.message);
+            throw ex.message;
+        }
     }
-};
+    return true;
+}
 
 /**
  * Writes a file and calls a callback.
@@ -242,12 +260,12 @@ Utils.write_file = function( path, txt, replace ) {
  * @param   {function}  callback    The callback to execute.
  * @returns {*}                     The result of the callback.
  */
-Utils.write_and_call = function( path, txt, callback ) {
+Utils.write_and_call = function(path, txt, callback) {
     try {
-        var file = new File( path );
+        var file = new File(path);
         if (file.exists) {
             file.remove();
-            file = new File( path );
+            file = new File(path);
         }
         file.open("e", "TEXT", "????");
         file.seek(0,2);
@@ -260,9 +278,12 @@ Utils.write_and_call = function( path, txt, callback ) {
         try {
             file.close();
         }
-        catch(ex) {/* Exit Gracefully*/}
-        throw ex;
+        catch(ex) {
+            Utils.logger(ex.message);
+            throw ex.message;
+        }
     }
+    return true;
 };
 
 /**
@@ -271,7 +292,7 @@ Utils.write_and_call = function( path, txt, callback ) {
  * @param {object}  json
  * @param {bool}    replace
  */
-Utils.write_json_file = function( path, json, replace ) {
+Utils.write_json_file = function(path, json, replace) {
     try {
         Utils.write_file(path, Utils.objectToString(json), replace);
     }
@@ -281,12 +302,21 @@ Utils.write_json_file = function( path, json, replace ) {
 };
 
 /**
+ * @deprecated
  * Reads the contents of a file.
  * @param   {string|File}  theFile
  * @returns {string}
  */
-Utils.read_file = function( theFile ) {
+Utils.read_file = function(theFile) {
+    return Utils.read(theFile);
+};
 
+/**
+ * Reads the contents of a file.
+ * @param   theFile
+ * @returns {string}
+ */
+Utils.read = function(theFile) {
     var content = "";
 
     if (typeof(theFile) != 'object') {
@@ -302,7 +332,7 @@ Utils.read_file = function( theFile ) {
                         LANG.CHOOSE_FILE,
                         "",
                         false
-                    );
+                   );
                 }
             }
         }
@@ -327,24 +357,36 @@ Utils.read_file = function( theFile ) {
 };
 
 /**
- *
- * @param {string}  filepath
- * @returns {*}
+ * Reads a JSON file.
+ * @param   {string}  theFile The file path to the JSON file.
+ * @returns {JSON}
  */
-Utils.read_json_file = function(filepath) {
-    var contents, result;
+Utils.read_json = function(theFile) {
+    var result,
+        contents;
+
     try {
-        if ( contents = Utils.read_file( filepath ) ) {
+        if (contents = Utils.read_file(theFile)) {
             result = JSON.parse(contents);
-            if ( typeof(result) != 'object') {
+            if (typeof(result) != 'object') {
                 result = null;
             }
         }
     }
     catch(ex) {
         Utils.logger(ex, $.line, $.fileName);
+        throw ex.message;
     }
     return result;
+}
+
+/**
+ * @deprecated
+ * @param {string}  filepath
+ * @returns {*}
+ */
+Utils.read_json_file = function(filepath) {
+    return Utils.read_json(filepath);
 };
 
 /**
@@ -380,7 +422,7 @@ Utils.get_config = function(config_file) {
  * @param {string}  filepath
  * @param {bool}    mustconfirm
  */
-Utils.deleteFile = function( filepath, mustconfirm ) {
+Utils.deleteFile = function(filepath, mustconfirm) {
     try {
         if (mustconfirm && ! confirm(LANG.CONFIRM_DELETE_PRESET)) {
             return;
@@ -396,8 +438,8 @@ Utils.deleteFile = function( filepath, mustconfirm ) {
  * Initialize a folder.
  * @param {string}  path
  */
-Utils.folder = function( path ) {
-    var theFolder = new Folder( path );
+Utils.folder = function(path) {
+    var theFolder = new Folder(path);
     if (! theFolder.exists) {
         theFolder.create();
     }
@@ -409,11 +451,11 @@ Utils.folder = function( path ) {
  * @param   {string}  srcFolder
  * @returns {Array}
  */
-Utils.getFilesInSubfolders = function( srcFolder ) {
+Utils.getFilesInSubfolders = function(srcFolder) {
 
     var allFiles, theFolders, svgFileList;
 
-    if ( ! srcFolder instanceof Folder) return;
+    if (! srcFolder instanceof Folder) return;
 
     allFiles    = srcFolder.getFiles();
     theFolders  = [];
@@ -542,8 +584,8 @@ Utils.isVisibleAndUnlocked = function(item) {
  * @returns {boolean}
  */
 Utils.anyParentLocked = function(item) {
-    while ( item.parent ) {
-        if ( item.parent.locked ) {
+    while (item.parent) {
+        if (item.parent.locked) {
             return true;
         }
         item = item.parent;
@@ -557,8 +599,8 @@ Utils.anyParentLocked = function(item) {
  * @returns {boolean}
  */
 Utils.anyParentHidden = function(item) {
-    while ( item.parent ) {
-        if ( item.parent.hidden ) {
+    while (item.parent) {
+        if (item.parent.hidden) {
             return true;
         }
         item = item.parent;
@@ -588,7 +630,7 @@ Utils.showProgressBar = function(maxvalue) {
 
     var top, right, bottom, left;
 
-    if ( bounds = Utils.getScreenSize() ) {
+    if (bounds = Utils.getScreenSize()) {
         left = Math.abs(Math.ceil((bounds.width/2) - (450/2)));
         top = Math.abs(Math.ceil((bounds.height/2) - (100/2)));
     }
@@ -787,6 +829,20 @@ Utils.generateUUID = function() {
         d = Math.floor(d / 16);
         return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
     });
+};
+
+/**
+ * Shortcut for Utils.generateUUID()
+ * @param   {integer}   len The length of the UUID
+ * @returns {string}
+ */
+Utils.uuid = function(len) {
+    var len = len ? len : -1 ;
+    var uuid = Utils.generateUUID();
+    if (len != -1) {
+        uuid = uuid.substr(0, len);
+    }
+    return uuid;
 };
 
 /**
