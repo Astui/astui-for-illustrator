@@ -172,12 +172,7 @@ $(function() {
             $button.mouseup(function(evt) {
                 evt.preventDefault();
                 console.log("Client.processSelection");
-                if (Client.hasValidApiKey()) {
-                    Client.processSelection();
-                }
-                else {
-                    Client.alert('You must have a valid API_KEY to use this extension');
-                }
+                Client.processSelection();
                 $button.blur();
             });
 
