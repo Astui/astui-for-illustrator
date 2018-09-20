@@ -184,7 +184,7 @@ $(function() {
      */
     Client.formatAstuiPayload = function(svgPathData, accuracy ) {
         return "path="    + svgPathData +
-            "&accuracy="  + accuracy +
+            "&tolerance="  + accuracy +
             "&api_token=" + Config.MY_API_KEY +
             "&decimal=1";
     };
@@ -216,14 +216,11 @@ $(function() {
                 $("path", $svg).each(function(i) {
 
                     $path = $(this);
-                    console.log($path.attr("d"));
 
                     thePayload = Client.formatAstuiPayload(
                         $("path", $svg).attr("d"),
                         $("#tolerance").val()
                     );
-
-                    console.info( "thePayload : " + thePayload );
 
                     $.ajax({
                         method  : "POST",
@@ -239,7 +236,7 @@ $(function() {
                     .done(function(result) {
 
                         $path.attr('d', result.path);
-                        $path.attr('fill', '#FFAA00');
+                        // $path.attr('fill', '#FFAA00');
 
                         Client.updatePathDataCallback($svg, {
                             uuid : csxsEvent.data.uuid,
@@ -249,12 +246,15 @@ $(function() {
                     })
                     .fail(function(result) {
                         Client.write( Config.COMMON_LOG, "[Client.sendPathPointToAstui] " + result, true );
+                        console.error( "[Client.sendPathPointToAstui] " + result );
+                        throw new Error("[Client.sendPathPointToAstui] " + result);
                     });
                 });
             }
         }
         catch(e) {
             console.error(e);
+            throw new Error(e);
         }
     };
 
@@ -275,9 +275,6 @@ $(function() {
             uuid : newPathData.uuid,
             file : newPathData.file.replace(".svg", "-2.svg")
         };
-
-        console.log(" ******* newPathData ******* ");
-        console.log(fileData);
 
         csInterface.evalScript( "Host.updatePathData('" + JSON.stringify(fileData) + "')", Client.info );
     };
@@ -312,20 +309,19 @@ $(function() {
      * @param result
      */
     Client.readHandler = function(result) {
-        console.log("Client.readHandler result : " + result);
-        return;
         try {
-            if (typeof(result) != 'undefined') {
-                // data = Client.validate(result).content;
+            if (isDefined(result)) {
                 console.log("Client.readHandler data : " + result);
             }
             else {
-                console.log("Client.readHandler result is undefined");
+                throw new Error("Client.readHandler result is undefined");
             }
         }
         catch (e) {
             console.error("Client.readHandler : " + e.message );
+            throw new Error(e);
         }
+        return true;
     };
 
     /**

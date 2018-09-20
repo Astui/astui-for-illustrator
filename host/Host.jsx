@@ -130,35 +130,25 @@ var Host = (function(Config) {
 
         if (isString(errorMessage)) {
             alert(errorMessage);
-            throw errorMessage;
+            throw new Error(errorMessage);
         }
 
         return doc.selection;
     };
 
-    /*
-        1. verify the selection
-        2. export the selection to SVG
-        3. Read SVG
-        4. Return SVG to Client
-        5. Send SVG to ASTUI
-        6. Retrieve response from ASTUI
-        7. Send updated SVG to Host.
-        8. Write updated SVG to temp file
-        9. Update selection with modified SVG.
-        10. Update UI with result message.
+    /**
+     * Load external object library.
+     * @returns {boolean}
+     * @private
      */
-
     function _loadExternalObject() {
         try {
             if (new ExternalObject("lib:\PlugPlugExternalObject")) {
-                _logger.info("[new ExternalObject(\"lib:\\PlugPlugExternalObject\")]");
                 return true;
             }
         }
         catch (e) {
-            _logger.info("[_loadExternalObject() ... catch(e)] " + e.message);
-            throw e;
+            throw new Error(e);
         }
     }
 
@@ -193,8 +183,6 @@ var Host = (function(Config) {
                         continue;
                     }
 
-                    _logger.info("[DEBUG] " + typeof(thisItem) + "." + thisItem.typename);
-
                     if (isPathItem(thisItem)) {
 
                         _logger.info("[isPathItem(thisItem)]");
@@ -206,7 +194,6 @@ var Host = (function(Config) {
                                 callbackEventType,
                                 JSON.stringify({ uuid: uuid, svg: _processPathItem(thisItem, uuid), file: filepath })
                             );
-                            Utils.dump(theCustomEvent);
                             theCustomEvent.dispatch();
                         }
                     }
@@ -227,24 +214,36 @@ var Host = (function(Config) {
             errorMessage = e.message;
             _logger.error(errorMessage);
         }
-
-        // return JSON.stringify({svg: svgData, error: errorMessage, filepath: filepath});
         return errorMessage || "Host.processSelection completed";
     };
 
+    /**
+     * Process a selected PathItem.
+     * @param thePathItem
+     * @param uuid
+     * @returns {string}
+     * @private
+     */
     function _processPathItem(thePathItem, uuid) {
-        filepath = Config.LOGFOLDER + "/" + uuid + ".svg";
-        if (svgFile = _exporter.selectionToSVG(selection, filepath)) {
-            if (isObject(svgFile)) {
-                return Utils.read(svgFile);
+        var svgData;
+        try {
+            filepath = Config.LOGFOLDER + "/" + uuid + ".svg";
+            if (svgFile = _exporter.selectionToSVG(selection, filepath)) {
+                if (isObject(svgFile)) {
+                    svgData = Utils.read(svgFile);
+                }
+                else {
+                    throw new Error("Could not read SVG file");
+                }
             }
             else {
-                "Could not read SVG file";
+                throw new Error("Could save selection to SVG");
             }
         }
-        else {
-            errrorMessage = "Could save selection to SVG";
+        catch(e) {
+            throw new Error(e);
         }
+        return svgData;
     }
 
     /**
@@ -269,9 +268,7 @@ var Host = (function(Config) {
 
         var f,
             doc,
-            uuid,
             theItem,
-            wasWritten,
             errorMessage,
             thePlacedItem,
             pathDataObject;
@@ -279,7 +276,6 @@ var Host = (function(Config) {
         doc = app.activeDocument;
 
         try {
-            Utils.dump(JSON.parse(pathData));
             if (pathDataObject = JSON.parse(pathData)) {
 
                 theItem = _getPathItemByUUID(pathDataObject.uuid);
@@ -289,46 +285,66 @@ var Host = (function(Config) {
                         f = new File(pathDataObject.file);
                         if (f.exists) {
                             if (thePlacedItem = doc.groupItems.createFromFile(f)) {
-                                thePlacedItem.position = theItem.position;
-                                for (var prop in thePlacedItem.pathItems[0]) {
+
+                                thePlacedPathItem = thePlacedItem.pathItems[0];
+
+                                Utils.dump("Set PathItem position");
+                                thePlacedPathItem.position = theItem.position;
+
+                                for (var prop in thePlacedPathItem) {
                                     try {
-                                        Utils.dump("Set theItem." + prop + " to " + thePlacedItem.pathItems[0][prop]);
-                                        theItem[prop] = thePlacedItem.pathItems[0][prop];
+                                        Utils.dump("Set PathItem." + prop);
+                                        theItem[prop] = thePlacedPathItem[prop];
                                     }
                                     catch(e) {
                                         Utils.dump(e.message);
                                     }
                                 }
+
+                                Utils.dump("Set PathItem PathPoints");
+                                copyPathPoints(theItem, thePlacedPathItem);
+
                                 thePlacedItem.remove();
                                 theItem.name = theItem.name.replace(" : " + pathDataObject.uuid);
                             }
+                            else {
+                                throw new Error("Could not import the updated SVG object");
+                            }
+                        }
+                        else {
+                            throw new Error(f.path + " does not exist");
                         }
                     }
                     else {
-                        Utils.logger("Was not written");
+                        throw new Error("pathObject.file is not defined");
                     }
                 }
                 else {
-                    throw new Error("[isDefined(theItem)] false");
+                    throw new Error("theItem is not defined");
                 }
             }
             else {
-                Utils.logger("Could not parse pathData");
-                errorMessage = "Could not parse pathData";
+                throw new Error("Could not parse pathData");
             }
         }
         catch(e) {
-            // Utils.dump(e.message);
-            errorMessage = e.message;
             throw new Error(e);
         }
 
-        return errorMessage || "Host.updatePathData completed";
+        return "Host.updatePathData completed";
     };
 
+    /**
+     * Select a PathItem by the UUID string in the name.
+     * @param uuid
+     * @returns {*}
+     * @private
+     */
     function _getPathItemByUUID(uuid) {
+
         var thisItem,
-            thePathItem = null;
+            thePathItem;
+
         if (selection = _verifySelection()) {
 
             for (var iter in selection) {

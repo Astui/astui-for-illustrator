@@ -281,6 +281,41 @@ function setPathItemFromSVG(path, svg)
 }
 
 /**
+ * Copies path points from one path to another.
+ * @param targetPath
+ * @param sourcePath
+ */
+function copyPathPoints(targetPath, sourcePath) {
+
+    var i,
+        pp,
+        pointArray,
+        targetPPKey,
+        sourcePPKey;
+
+    targetPPKey = targetPath.selected ? "selectedPathPoints" : "pathPoints";
+    sourcePPKey = sourcePath.selected ? "selectedPathPoints" : "pathPoints";
+
+    while (targetPath[targetPPKey].length > 1) {
+        targetPath[targetPPKey][0].remove();
+    }
+
+    pointArray = sourcePath[sourcePPKey];
+
+    targetPath[targetPPKey][0].anchor         = pointArray[0].anchor;
+    targetPath[targetPPKey][0].leftDirection  = pointArray[0].leftDirection;
+    targetPath[targetPPKey][0].rightDirection = pointArray[0].rightDirection;
+
+    for(i=1; i < pointArray.length; i++) {
+        pp = targetPath[targetPPKey].add();
+        pp.anchor         = pointArray[i].anchor;
+        pp.leftDirection  = pointArray[i].leftDirection;
+        pp.rightDirection = pointArray[i].rightDirection;
+        pp.pointType      = PointType.CORNER;
+    }
+}
+
+/**
  * Converts SVG Path value to cubic bezier points.
  * @param   {string}    svg
  * @returns {Array}
