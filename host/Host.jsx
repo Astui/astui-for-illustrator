@@ -289,12 +289,11 @@ var Host = (function(Config) {
                         f = new File(pathDataObject.file);
                         if (f.exists) {
                             if (thePlacedItem = doc.groupItems.createFromFile(f)) {
+                                thePlacedItem.position = theItem.position;
                                 for (var prop in thePlacedItem.pathItems[0]) {
                                     try {
-                                        if (isDefined(theItem[prop])) {
-                                            Utils.dump("Set theItem." + prop + " to " + thePlacedItem.pathItems[0][prop]);
-                                            theItem[prop] = thePlacedItem.pathItems[0][prop];
-                                        }
+                                        Utils.dump("Set theItem." + prop + " to " + thePlacedItem.pathItems[0][prop]);
+                                        theItem[prop] = thePlacedItem.pathItems[0][prop];
                                     }
                                     catch(e) {
                                         Utils.dump(e.message);
