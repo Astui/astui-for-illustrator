@@ -50,13 +50,16 @@ $.localize = true;
   *     DOCUMENTS: *
   * }}
  */
-var Config = new Configuration({
+var Config = {
     APP_NAME         : 'astui-for-illustrator',
     USER             : $.getenv('USER'),
     HOME             : $.getenv('HOME'),
-    DOCUMENTS        : Folder.myDocuments,
-    LOGFOLDER        : '~/Downloads/astui-for-illustrator'
-});
+    DOCUMENTS        : Folder.myDocuments +  "",
+    LOGFOLDER        : '~/Downloads/astui-for-illustrator',
+    API_KEY          : 'YOUR_API_KEY',
+    API_ENDPOINT     : 'ASTUI_API_ENDPIONT',
+    COMMON_LOG       : '~/Downloads/astui-for-illustrator/common.log'
+};
 
 /**
  * Supported Ai Object types for this script.
@@ -73,7 +76,16 @@ var supportedTypes = [
  * Used for temporary storage of objects.
  * @type {{}}
  */
-var __GLOBALS = {};
+var _GLOBALS = {
+    /**
+     * The settings file path.
+     * @type {string}
+     */
+    SETTINGS_FILE_PATH : Folder.myDocuments + "/astui-for-illustrator/settings.json"
+};
+
+Utils.dump({name: 'CONFIG',   value: Utils.inspect(Config) });
+Utils.dump({name: '_GLOBALS', value: Utils.inspect(_GLOBALS) });
 
 /**
  * Run the script using the Module patter.
@@ -84,20 +96,35 @@ var Host = (function(Config) {
      * The local scope logger object.
      * @type {Logger}
      */
-    var _logger   = new Logger(Config.get('APP_NAME'), Config.get('LOGFOLDER'), LogLevel.INFO);
+    var _logger   = new Logger(Config.APP_NAME, Config.LOGFOLDER, LogLevel.INFO);
     var _exporter = new Exporter();
 
     /**
-     *
+     * Prompt user for API_KEY.
      * @returns {string}
      */
-    function _userPrompt() {
-        var userInput = prompt('Please enter your Astute Graphics API key', '');
-        while (userInput.replace(/^\s+|\s+$/gm,'') == '' && count < 3) {
-            count++;
-            userInput = prompt('Please enter your Astute Graphics API key', '');
+    function _saveApiToken() {
+
+        var userInput;
+
+        Utils.dump( "[_saveApiToken(defaultAnswer)] : START" );
+
+        userInput = prompt('Please enter your Astute Graphics API Token', Config.API_KEY);
+
+        if (typeof(userInput) != 'undefined' && Utils.trim(userInput) != '') {
+            Utils.dump( "[_saveApiToken() : userInput : " + userInput  );
+
+            Utils.dump( "[_saveApiToken() : save : " + userInput  );
+            Config.API_KEY = Utils.trim(userInput);
+            var wasSaved = Utils.write(
+                _GLOBALS.SETTINGS_FILE_PATH,
+                JSON.stringify(Config),
+                true, 'JSON'
+            );
+            Utils.dump( "[_saveApiToken() : wasSaved : " + wasSaved  );
         }
-        return JSON.stringify({value: userInput});
+
+        return JSON.stringify({value: userInput || '' });
     };
 
     /**
@@ -387,11 +414,16 @@ var Host = (function(Config) {
      * @private
      */
     function _getSettings() {
-        var Settings = JSON.stringify(Utils.read_json(
-            Config.DOCUMENTS + "/" + Config.APP_NAME + "/settings.json"
-        )) ;
-        Config.update(Settings);
-        return Settings;
+        var Settings = Utils.read_json(
+            _GLOBALS.SETTINGS_FILE_PATH
+        );
+        Utils.dump({name: "SETTINGS", object: Settings, file: _GLOBALS.SETTINGS_FILE_PATH });
+        Config.API_ENDPOINT = Settings.API_ENDPOINT;
+        Config.API_KEY      = Settings.API_KEY;
+        Config.COMMON_LOG   = Settings.COMMON_LOG;
+        Settings.DOCUMENTS  = Config.DOCUMENTS;
+        Settings.APP_NAME   = Config.APP_NAME;
+        return JSON.stringify(Settings);
     };
 
     /**
@@ -401,6 +433,21 @@ var Host = (function(Config) {
      */
     function _doMenuCommand(kCommandStr) {
         return new MenuCommand(kCommandStr, true);
+    };
+
+    /**
+     * Creates a web shortcut then opens it in the default browser.
+     * @param address
+     * @private
+     */
+    function _openURL( address ) {
+
+        var f = File( Folder.temp + '/aiOpenURL.url' );
+
+        f.open( 'w' );
+        f.write( '[InternetShortcut]' + '\r' + 'URL=' + address + '\r' );
+        f.close();
+        f.execute();
     };
 
     /**
@@ -455,6 +502,14 @@ var Host = (function(Config) {
         },
 
         /**
+         * Open a web url in the default browser.
+         * @param url
+         */
+        openUrl: function(url) {
+            _openURL(url);
+        },
+
+        /**
          * Execute a Menu Command.
          * @param kCommandStr
          * @returns {MenuCommand}
@@ -483,10 +538,11 @@ var Host = (function(Config) {
 
         /**
          * Prompt user for input.
+         * @param   {string}    defaultAnswer
          * @returns {string}
          */
-        userPrompt: function() {
-            return _userPrompt();
+        saveApiToken: function(defaultAnswer) {
+            return _saveApiToken(defaultAnswer || '');
         },
 
         /**

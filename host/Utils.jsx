@@ -896,3 +896,26 @@ Utils.dump = function(what) {
         Utils.logger(e.message, $.line, $.fileName);
     }
 };
+
+/**
+ * Dump an object to the log.
+ * @param what
+ */
+Utils.inspect = function(what) {
+    var inspection = "";
+    try {
+        for (key in what) {
+            if (typeof(what[key]) == 'function') {
+                inspection += typeof(what[key]) + ":" + key + " => [Function] \n";
+            }
+            else if (typeof(what[key]) == 'object') {
+                inspection += typeof(what[key]) + ":" + key + Utils.inspect(what[key]) + "\n";
+            }
+            else  {
+                inspection += typeof(what[key]) + ":" + key + " => " + what[key] + "\n";
+            }
+        }
+    }
+    catch(e) { /* Ignore errors */}
+    return inspection;
+};

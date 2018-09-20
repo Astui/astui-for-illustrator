@@ -28,7 +28,7 @@
 
 window.Client = window.Client || {};
 
-var MY_API_KEY,
+var API_KEY,
     API_ENDPOINT;
 
 var Config = window.Config || {};
@@ -54,25 +54,31 @@ $(function() {
      * @param result
      */
     Client.updateSettings = function(result) {
-        console.info(result);
+        var settings;
+        try {
+            console.info(result);
+        }
+        catch(e) { console.error("updateSettings:result " + e.message); }
         try {
             if (isDefined(result)) {
-                data = Client.validate(result);
+                settings = Client.validate(result);
             }
 
-            for (key in data) {
-                Config[key] = data[key];
+            for (key in settings) {
+                Config[key] = settings[key];
             }
 
-            if (typeof(data.API_ENDPOINT) != 'undefined') {
-                API_ENDPOINT = data.API_ENDPOINT;
-                Config.API_ENDPOINT = data.API_ENDPOINT;
+            if (typeof(settings.API_ENDPOINT) != 'undefined') {
+                API_ENDPOINT = settings.API_ENDPOINT;
+                Config.API_ENDPOINT = settings.API_ENDPOINT;
             }
 
-            if (typeof(data.API_KEY) != 'undefined') {
-                MY_API_KEY = data.API_KEY;
-                Config.MY_API_KEY = data.API_KEY;
+            if (typeof(settings.API_KEY) != 'undefined') {
+                API_KEY = settings.API_KEY;
+                Config.API_KEY = settings.API_KEY;
             }
+
+            console.log(JSON.stringify(Config));
         }
         catch(e) {
             throw "[Client.updateSettings] " + e.message;
@@ -113,8 +119,7 @@ $(function() {
 
             data = JSON.parse(result);
 
-            console.log("[data = JSON.parse(result)] " + result);
-            console.log("[typeof(isDefined)] " + typeof(isDefined));
+            console.log("[data = JSON.parse(result)] " + data);
 
             if (! isObject(data)) {
                 console.log("[Client.validate() ... isObject(data)] " + JSON.stringify(data));
@@ -122,7 +127,7 @@ $(function() {
             }
         }
         catch(e) {
-            throw "[Client.validate() ... catch(e)] " + e;
+            throw "[Client.validate() ... catch(e)] " + e.message;
         }
         return data;
     };
@@ -167,7 +172,12 @@ $(function() {
             $button.mouseup(function(evt) {
                 evt.preventDefault();
                 console.log("Client.processSelection");
-                Client.processSelection();
+                if (Client.hasValidApiKey()) {
+                    Client.processSelection();
+                }
+                else {
+                    Client.alert('You must have a valid API_KEY to use this extension');
+                }
                 $button.blur();
             });
 
@@ -185,7 +195,7 @@ $(function() {
     Client.formatAstuiPayload = function(svgPathData, accuracy ) {
         return "path="    + svgPathData +
             "&tolerance="  + accuracy +
-            "&api_token=" + Config.MY_API_KEY +
+            "&api_token=" + Config.API_KEY +
             "&decimal=1";
     };
 
@@ -410,9 +420,9 @@ $(function() {
      */
     Client.initFlyoutMenu = function() {
         var Menu = new FlyoutMenu();
-        Menu.add('enterLicenseKey', 'Enter License Key', true, false, false);
+        Menu.add('enterLicenseKey', 'Enter License Token', true, false, false);
         Menu.divider();
-        Menu.add('getLicenseKey', 'Get a License key', true, false, false);
+        Menu.add('getLicenseKey', 'Get a License Token', true, false, false);
         Menu.add('aboutAstuteGraphics', 'About Astute Graphics', true, false, false);
         Menu.setHandler(Client.flyoutMenuClickedHandler);
         Menu.build();
@@ -429,29 +439,69 @@ $(function() {
         switch (event.data.menuId) {
             case "getLicenseKey":
                 //@TODO: Redirect to get license key.
+                csInterface.evalScript('Host.showAlert("Not yet implemented")', Client.info);
                 break;
 
             case "aboutAstuteGraphics":
-                //@TODO: Open Astute Graphics in default browser.
+                csInterface.evalScript('Host.openUrl("astutegraphics.com")');
+                break;
+            case 'enterLicenseKey':
+                csInterface.evalScript(
+                    'Host.saveApiToken()',
+                    Client.validateLicenseKey
+                );
                 break;
 
             default:
                 break;
         }
+    };
 
-        if (event.data.menuId == 'enterLicenseKey') {
-            csInterface.evalScript('Host.userPrompt()', Client.validateLicenseKey);
+    /**
+     * Validate the user input and save API_KEY to settings file.
+     * @param result
+     */
+    Client.validateLicenseKey = function(result) {
+        var configJson, settingsFile;
+
+        console.log("Client.validateLicenseKey : result -> " + result);
+
+        try {
+            // // Client.getSettings();
+            // if (API_KEY = Client.validate(result).value) {
+            //     settingsFile = Config.DOCUMENTS + '/' + Config.APP_NAME + '/settings.json';
+            //     Config.API_KEY = API_KEY;
+            //     console.log("New Config : " + JSON.stringify(Config));
+            //     Client.write(settingsFile, JSON.stringify(Config), true, 'JSON');
+            // }
+            Client.getSettings();
+        }
+        catch(e) {
+            console.error("[Client.validateLicenseKey] : " + e.message);
         }
     };
 
     /**
-     * Validate the user input.
-     * @param result
+     * Retrieve the stored API_KEY.
+     * @returns {Object|*}
      */
-    Client.validateLicenseKey = function(result) {
-        if (data = Client.validate(result)) {
-            Client.showMessage('You entered license key : ' + data);
+    Client.getStoredLicenseKey = function() {
+        try {
+            configJson = JSON.parse(Client.read(
+                Config.DOCUMENTS + '/' + Config.APP_NAME + '/settings.json'
+            ));
+            return configJson.API_KEY;
         }
+        catch(e) { console.error(e); }
+        return null;
+    };
+
+    /**
+     * Does the user have a stored API_KEY?
+     * @returns {boolean}
+     */
+    Client.hasValidApiKey = function() {
+        return (! isEmpty(Client.getStoredLicenseKey() ));
     };
 
     /**
