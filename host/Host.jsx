@@ -171,7 +171,9 @@ var Host = (function(Config) {
     function _processSelection(callbackEventType) {
 
         var uuid,
-            errorMessage;
+            filepath,
+            errorMessage,
+            theCustomEvent;
 
         uuid = Utils.uuid();
 
@@ -194,14 +196,15 @@ var Host = (function(Config) {
                     _logger.info("[DEBUG] " + typeof(thisItem) + "." + thisItem.typename);
 
                     if (isPathItem(thisItem)) {
+
                         _logger.info("[isPathItem(thisItem)]");
 
-                        __GLOBALS[uuid] = thisItem;
-
                         if ( _loadExternalObject() ) {
-                            var theCustomEvent = _getNewCSEvent(
+                            thisItem.name += " : " + uuid;
+                            filepath = Config.LOGFOLDER + "/" + uuid + ".svg";
+                            theCustomEvent = _getNewCSEvent(
                                 callbackEventType,
-                                JSON.stringify({ uuid: uuid, path: pathItemToSVG(thisItem) })
+                                JSON.stringify({ uuid: uuid, svg: _processPathItem(thisItem, uuid), file: filepath })
                             );
                             Utils.dump(theCustomEvent);
                             theCustomEvent.dispatch();
@@ -229,6 +232,21 @@ var Host = (function(Config) {
         return errorMessage || "Host.processSelection completed";
     };
 
+    function _processPathItem(thePathItem, uuid) {
+        filepath = Config.LOGFOLDER + "/" + uuid + ".svg";
+        if (svgFile = _exporter.selectionToSVG(selection, filepath)) {
+            if (isObject(svgFile)) {
+                return Utils.read(svgFile);
+            }
+            else {
+                "Could not read SVG file";
+            }
+        }
+        else {
+            errrorMessage = "Could save selection to SVG";
+        }
+    }
+
     /**
      * Create a new CSXSEvent.
      * @param   {string}    eventType
@@ -249,32 +267,104 @@ var Host = (function(Config) {
      */
     function _updatePathData(pathData) {
 
-        var uuid,
+        var f,
+            doc,
+            uuid,
             theItem,
+            wasWritten,
+            errorMessage,
+            thePlacedItem,
             pathDataObject;
 
-        _logger.info("[_updatePathData(pathData)] " + pathData);
-        try {
-            Utils.logger( " ******* Utils.dump(pathData); ******* " );
-            Utils.dump(pathData);
+        doc = app.activeDocument;
 
+        try {
+            Utils.dump(JSON.parse(pathData));
             if (pathDataObject = JSON.parse(pathData)) {
-                if (theItem = Utils.get(__GLOBALS, pathDataObject.uuid, false)) {
-                    // setPathItemFromSVG(theItem, pathDataObject.path);
-                    theItem.setEntirePath(svgToPathPointArray(pathDataObject.path));
+
+                theItem = _getPathItemByUUID(pathDataObject.uuid);
+
+                if (isDefined(theItem)) {
+                    if (isDefined(pathDataObject.file)) {
+                        f = new File(pathDataObject.file);
+                        if (f.exists) {
+                            if (thePlacedItem = doc.groupItems.createFromFile(f)) {
+                                for (var prop in thePlacedItem.pathItems[0]) {
+                                    try {
+                                        if (isDefined(theItem[prop])) {
+                                            Utils.dump("Set theItem." + prop + " to " + thePlacedItem.pathItems[0][prop]);
+                                            theItem[prop] = thePlacedItem.pathItems[0][prop];
+                                        }
+                                    }
+                                    catch(e) {
+                                        Utils.dump(e.message);
+                                    }
+                                }
+                                thePlacedItem.remove();
+                                theItem.name = theItem.name.replace(" : " + pathDataObject.uuid);
+                            }
+                        }
+                    }
+                    else {
+                        Utils.logger("Was not written");
+                    }
                 }
                 else {
-                    throw new Error("[_updatePathData(pathData)] failed");
+                    throw new Error("[isDefined(theItem)] false");
                 }
+            }
+            else {
+                Utils.logger("Could not parse pathData");
+                errorMessage = "Could not parse pathData";
             }
         }
         catch(e) {
-            _logger.error("[_updatePathData(pathData)] " + e.message);
-            return "[_updatePathData(pathData)] " + e.message;
+            // Utils.dump(e.message);
+            errorMessage = e.message;
+            throw new Error(e);
         }
 
-        return "Host.updatePathData completed";
+        return errorMessage || "Host.updatePathData completed";
     };
+
+    function _getPathItemByUUID(uuid) {
+        var thisItem,
+            thePathItem = null;
+        if (selection = _verifySelection()) {
+
+            for (var iter in selection) {
+
+                var thisItem = selection[iter];
+
+                if (isPathItem(thisItem)) {
+                    if (uuid = _getUuidFromName(thisItem.name)) {
+                        return thisItem;
+                    }
+                }
+                else if (isCompoundPathItem(thisItem)) {
+                    // TODO: Not yet implemented
+                    _logger.error("isCompoundPathItem is not yet implemented");
+                }
+                else {
+                    continue;
+                }
+            }
+        }
+        return thePathItem;
+    };
+
+    /**
+     * Get the UUID from the item name.
+     * @param   {string}    itemName
+     * @returns {string|null}
+     * @private
+     */
+    function _getUuidFromName(itemName) {
+        if (itemName.split(":").length > 1) {
+            return itemName.split(":").pop();
+        }
+        return null;
+    }
 
     /**
      * Get settings JSON from file.
@@ -336,12 +426,12 @@ var Host = (function(Config) {
          * @param replace
          * @returns {*}
          */
-        write: function(filePath, txt, replace) {
+        write: function(filePath, txt, replace, type) {
             if (! isDefined(replace)) replace = true;
 
             var result = { result: "" };
             try {
-                result.result = Utils.write(filePath, txt, replace);
+                result.result = Utils.write(filePath, txt, replace, type || "TEXT");
             }
             catch(e) {
                 result.result = e.message;

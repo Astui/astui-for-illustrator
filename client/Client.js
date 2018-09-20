@@ -195,6 +195,10 @@ $(function() {
      */
     Client.sendPathPointToAstui = function(csxsEvent) {
 
+        var $svg,
+            $path,
+            thePayload;
+
         console.log(typeof(csxsEvent));
         console.log(csxsEvent);
 
@@ -203,36 +207,49 @@ $(function() {
         }
 
         try {
-            if (svgPathData = csxsEvent.data.path) {
+            if (svgPathData = csxsEvent.data) {
 
-                var uuid = csxsEvent.data.uuid;
+                $svg = removeEmptyNodes(
+                    $.parseXML(svgPathData.svg)
+                );
 
-                // { uuid: Utils.uuid(), path: pathItemToSVG(thisItem) }
+                $("path", $svg).each(function(i) {
 
-                console.log("Client.sendPathPointToAstui called with data (" + svgPathData + ")");
-                console.log("[astui.payload] " + Client.formatAstuiPayload(svgPathData, $("#tolerance").val()) );
+                    $path = $(this);
+                    console.log($path.attr("d"));
 
-                $.ajax({
-                    method  : "POST",
-                    url     : Config.API_ENDPOINT,
-                    data    : Client.formatAstuiPayload(svgPathData, $("#tolerance").val()),
-                    headers : {
-                        "Content-Type"  : "application/x-www-form-urlencoded",
-                        "Cache-Control" : "no-cache",
-                        "Accept"        : "application/json, text/plain, */*"
-                    }
-                })
-                .done(function(result) {
-                    console.log( " ========== Done ========== " );
-                    console.log( JSON.stringify(result) );
-                    console.log(result);
-                    Client.updatePathDataCallback(JSON.stringify({
-                        uuid: csxsEvent.data.uuid,
-                        path: result.path
-                    }));
-                })
-                .fail(function(result) {
-                    Client.write( Config.COMMON_LOG, "[Client.sendPathPointToAstui] " + result, true );
+                    thePayload = Client.formatAstuiPayload(
+                        $("path", $svg).attr("d"),
+                        $("#tolerance").val()
+                    );
+
+                    console.info( "thePayload : " + thePayload );
+
+                    $.ajax({
+                        method  : "POST",
+                        url     : Config.API_ENDPOINT,
+                        data    : thePayload,
+                        async   : false,
+                        headers : {
+                            "Content-Type"  : "application/x-www-form-urlencoded",
+                            "Cache-Control" : "no-cache",
+                            "Accept"        : "application/json, text/plain, */*"
+                        }
+                    })
+                    .done(function(result) {
+
+                        $path.attr('d', result.path);
+                        $path.attr('fill', '#FFAA00');
+
+                        Client.updatePathDataCallback($svg, {
+                            uuid : csxsEvent.data.uuid,
+                            file : csxsEvent.data.file,
+                            path : result.path,
+                        });
+                    })
+                    .fail(function(result) {
+                        Client.write( Config.COMMON_LOG, "[Client.sendPathPointToAstui] " + result, true );
+                    });
                 });
             }
         }
@@ -245,11 +262,24 @@ $(function() {
      * Update the path data for the selected item.
      * @param result
      */
-    Client.updatePathDataCallback = function(newPathData) {
-        Client.info("[Client.updatePathDataCallback] " + newPathData);
-        console.log("[Client.updatePathDataCallback] " + newPathData);
-        console.log(newPathData);
-        csInterface.evalScript( "Host.updatePathData('" + newPathData + "')", Client.info );
+    Client.updatePathDataCallback = function($svg, newPathData) {
+
+        Client.write(
+            newPathData.file.replace(".svg", "-2.svg"),
+            xmlToString($svg),
+            true,
+            'SVG '
+        );
+
+        var fileData = {
+            uuid : newPathData.uuid,
+            file : newPathData.file.replace(".svg", "-2.svg")
+        };
+
+        console.log(" ******* newPathData ******* ");
+        console.log(fileData);
+
+        csInterface.evalScript( "Host.updatePathData('" + JSON.stringify(fileData) + "')", Client.info );
     };
 
     /**
@@ -303,10 +333,17 @@ $(function() {
      * @param txt
      * @param filePath
      */
-    Client.write = function(filePath, txt, replace) {
+    Client.write = function(filePath, txt, replace, type) {
+        if (typeof(type) == 'undefined') {
+            type = 'TEXT';
+        }
         var replace = replace ? replace : false ;
+
+        // Replace newline chars to avoid 'unterminated string literal' error.
+        txt = trimNewLines(txt);
+
         csInterface.evalScript(
-            "Host.write('" + filePath + "', '" + txt + "', '" + replace +  "')",
+            "Host.write('" + filePath + "', '" + txt + "', '" + replace +  "', '" + type + "')",
             Client.writeHandler
         );
     };
@@ -316,11 +353,8 @@ $(function() {
      * @param result
      */
     Client.writeHandler = function(result) {
-        console.log("Client.writeHandler result : " + result);
-        return;
         try {
             if (typeof(result) != 'undefined') {
-                // data = Client.validate(result).result;
                 console.log("Client.writeHandler data : " + result);
             }
             else {

@@ -228,14 +228,17 @@ Utils.write_file = function(path, txt, replace) {
  * @param {bool}    replace     Replace the file
  * @return void
  */
-Utils.write = function(path, txt, replace) {
+Utils.write = function(path, txt, replace, type) {
+    if (typeof(type) == "undefined") {
+        type = "TEXT";
+    }
     try {
         var file = new File(path);
         if (replace && file.exists) {
             file.remove();
             file = new File(path);
         }
-        file.open("e", "TEXT", "????");
+        file.open("e", type, "????");
         file.seek(0,2);
         $.os.search(/windows/i)  != -1 ? file.lineFeed = 'windows'  : file.lineFeed = 'macintosh';
         file.writeln(txt);

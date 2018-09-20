@@ -207,6 +207,49 @@ function isEmpty(data) {
 }
 
 /**
+ * Convert XML document to string.
+ * @param   {XmlDocument} xmlData
+ * @returns {string}
+ */
+function xmlToString(xmlData) {
+
+    var xmlString;
+    //IE
+    if (window.ActiveXObject){
+        xmlString = xmlData.xml;
+    }
+    // code for Mozilla, Firefox, Opera, etc.
+    else {
+        xmlString = (new XMLSerializer()).serializeToString(xmlData);
+    }
+    return xmlString;
+}
+
+/**
+ * Trim newline chars from a long string.
+ * @param   {string}    theText
+ * @returns {string}
+ */
+function trimNewLines(theText) {
+    return theText.replace(/\r?\n/g, "");
+}
+
+/**
+ * Remove empty group nodes from SVG.
+ * @param   {XmlDocument} $svg
+ * @returns {XmlDocument}
+ */
+function removeEmptyNodes($svg) {
+    $("g", $svg).each(function(i) {
+        var $group = $(this);
+        if ($.trim($group.text()) == "") {
+            $group.remove();
+        }
+    });
+    return $svg;
+}
+
+/**
  * Set the PathPoints in an AI PathItem from SVG path value.
  * @param {PathItem}    path
  * @param {string}      svg
