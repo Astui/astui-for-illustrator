@@ -152,12 +152,64 @@ function isDefined(theItem) {
 }
 
 /**
+ * If theItem is defined, return it, otherwise set it to theDefault value.
+ * @param   {*}     theItem
+ * @param   {*)     theDefault
+ * @returns {boolean|*}
+ */
+function isDefinedOr(theItem, theDefault) {
+    if (typeof(theItem) != 'undefined') {
+        return theItem;
+    }
+    return theDefault;
+}
+
+/**
+ * If theItem is not empty, return it, otherwise set it to theDefault value.
+ * @param   {*}     theItem
+ * @param   {*)     theDefault
+ * @returns {boolean|*}
+ */
+function isEmptyOr(theItem, theDefault) {
+    if (! isEmpty(theItem)) {
+        return theItem;
+    }
+    return theDefault;
+}
+
+/**
  * Get the current timestamp.
  * @returns {number}
  * @private
  */
 function now() {
     return (new Date()).getTime();
+}
+
+/**
+ * Ensures a URL ends with a trailing slash.
+ * @param url
+ * @returns {*}
+ */
+function slash(url) {
+    if (url.charAt(url.length-1) != '/') {
+        url += '/';
+    }
+    return url;
+};
+
+/**
+ * Appends a string to a base string using a divider.
+ * @param   {string} base
+ * @param   {string} add
+ * @param   {string} divider
+ * @returns {string}
+ */
+function concat(base, add, divider) {
+    if (base.charAt(base.length-1) != divider) {
+        base += divider;
+    }
+    return base + add;
 }
 
 /**
@@ -179,7 +231,7 @@ function trap(func, customError) {
     try {
         return func();
     }
-    catch(e){
+    catch(e) {
         return customError || e.message ;
     }
 }
@@ -212,17 +264,12 @@ function isEmpty(data) {
  * @returns {string}
  */
 function xmlToString(xmlData) {
-
-    var xmlString;
     //IE
     if (window.ActiveXObject){
-        xmlString = xmlData.xml;
+        return xmlData.xml;
     }
-    // code for Mozilla, Firefox, Opera, etc.
-    else {
-        xmlString = (new XMLSerializer()).serializeToString(xmlData);
-    }
-    return xmlString;
+    // Everyone else.
+    return (new XMLSerializer()).serializeToString(xmlData);
 }
 
 /**
@@ -307,11 +354,16 @@ function copyPathPoints(targetPath, sourcePath) {
     targetPath[targetPPKey][0].rightDirection = pointArray[0].rightDirection;
 
     for(i=1; i < pointArray.length; i++) {
-        pp = targetPath[targetPPKey].add();
-        pp.anchor         = pointArray[i].anchor;
-        pp.leftDirection  = pointArray[i].leftDirection;
-        pp.rightDirection = pointArray[i].rightDirection;
-        pp.pointType      = PointType.CORNER;
+        try {
+            pp = targetPath[targetPPKey].add();
+            pp.anchor         = pointArray[i].anchor;
+            pp.leftDirection  = pointArray[i].leftDirection;
+            pp.rightDirection = pointArray[i].rightDirection;
+            pp.pointType      = PointType.CORNER;
+        }
+        catch(e) {
+            Utils.dump("[copyPathPoints()#targetPath[targetPPKey].add()] " + e.message);
+        }
     }
 }
 

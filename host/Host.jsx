@@ -74,9 +74,18 @@ var supportedTypes = [
 
 /**
  * Used for temporary storage of objects.
- * @type {{}}
+ * @type {{
+ *      ExternalObjectIsLoadedLib: boolean,
+ *      SETTINGS_FILE_PATH: string
+ * }}
+ * @private
  */
 var _GLOBALS = {
+    /**
+     * Whether or not the ExternalObjectLib is loaded
+     * @type {boolean}
+     */
+    ExternalObjectIsLoadedLib : false,
     /**
      * The settings file path.
      * @type {string}
@@ -169,8 +178,10 @@ var Host = (function(Config) {
      * @private
      */
     function _loadExternalObject() {
+        if (_GLOBALS.ExternalObjectLib) return true;
         try {
             if (new ExternalObject("lib:\PlugPlugExternalObject")) {
+                ExternalObjectIsLoadedLib = true;
                 return true;
             }
         }
@@ -201,6 +212,8 @@ var Host = (function(Config) {
 
                     var thisItem = selection[iter];
 
+                    Utils.dump(thisItem.typename);
+
                     // Ignore member functions.
                     if (isFunction( thisItem ) ) continue;
 
@@ -216,17 +229,23 @@ var Host = (function(Config) {
 
                         if ( _loadExternalObject() ) {
                             thisItem.name += " : " + uuid;
-                            filepath = Config.LOGFOLDER + "/" + uuid + ".svg";
                             theCustomEvent = _getNewCSEvent(
                                 callbackEventType,
-                                JSON.stringify({ uuid: uuid, svg: _processPathItem(thisItem, uuid), file: filepath })
+                                JSON.stringify({
+                                    uuid: uuid,
+                                    svg: _processPathItem(thisItem, uuid),
+                                    file: Config.LOGFOLDER + "/" + uuid + ".svg"
+                                })
                             );
                             theCustomEvent.dispatch();
+                        }
+                        else {
+                            errorMessage = 'ExternalObjectLib was not loaded';
                         }
                     }
                     else if (isCompoundPathItem(thisItem)) {
                         // TODO: Not yet implemented
-                        _logger.error("isCompoundPathItem is not yet implemented");
+                        _logger.error("isCompoundPathItem(thisItem) is not yet implemented");
                     }
                     else {
                         continue;
@@ -274,6 +293,15 @@ var Host = (function(Config) {
     }
 
     /**
+     * Calls Astui to move points to tangents.
+     * @private
+     */
+    function _moveToTangents() {
+        Utils.dump("Host.moveToTangents() is not yet implemented");
+        throw "Host.moveToTangents() is not yet implemented";
+    }
+
+    /**
      * Create a new CSXSEvent.
      * @param   {string}    eventType
      * @param   {*}         data
@@ -317,16 +345,6 @@ var Host = (function(Config) {
 
                                 Utils.dump("Set PathItem position");
                                 thePlacedPathItem.position = theItem.position;
-
-                                for (var prop in thePlacedPathItem) {
-                                    try {
-                                        Utils.dump("Set PathItem." + prop);
-                                        theItem[prop] = thePlacedPathItem[prop];
-                                    }
-                                    catch(e) {
-                                        Utils.dump(e.message);
-                                    }
-                                }
 
                                 Utils.dump("Set PathItem PathPoints");
                                 copyPathPoints(theItem, thePlacedPathItem);
@@ -441,13 +459,15 @@ var Host = (function(Config) {
      * @private
      */
     function _openURL( address ) {
-
-        var f = File( Folder.temp + '/aiOpenURL.url' );
-
-        f.open( 'w' );
-        f.write( '[InternetShortcut]' + '\r' + 'URL=' + address + '\r' );
-        f.close();
-        f.execute();
+        try {
+            Utils.write_exec(
+                Folder.temp + '/' + now() + '-shortcut.url',
+                '[InternetShortcut]' + '\r' + 'URL=' + encodeURI(address) + '\r'
+            );
+        }
+        catch(e) {
+            /* TODO: How should we handle failures? This is not a critical function so ignore it? */
+        }
     };
 
     /**
@@ -525,6 +545,15 @@ var Host = (function(Config) {
          */
         processSelection: function(callbackEventType) {
             return _processSelection(callbackEventType);
+        },
+
+        /**
+         * Call private _callToApi method.
+         * @param   {string}    callbackEventType The name of the custom CSXS event to trigger.
+         * @returns {*}
+         */
+        moveToTangents: function(callbackEventType) {
+            return _moveToTangents(callbackEventType);
         },
 
         /**

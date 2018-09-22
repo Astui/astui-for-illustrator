@@ -263,14 +263,17 @@ Utils.write = function(path, txt, replace, type) {
  * @param   {function}  callback    The callback to execute.
  * @returns {*}                     The result of the callback.
  */
-Utils.write_and_call = function(path, txt, callback) {
+Utils.write_and_call = function(path, txt, callback, type) {
+    if (typeof(type) == "undefined") {
+        type = "TEXT";
+    }
     try {
         var file = new File(path);
         if (file.exists) {
             file.remove();
             file = new File(path);
         }
-        file.open("e", "TEXT", "????");
+        file.open("e", type, "????");
         file.seek(0,2);
         $.os.search(/windows/i)  != -1 ? file.lineFeed = 'windows'  : file.lineFeed = 'macintosh';
         file.writeln(txt);
@@ -285,6 +288,34 @@ Utils.write_and_call = function(path, txt, callback) {
             Utils.logger(ex.message);
             throw ex.message;
         }
+    }
+    return true;
+};
+
+/**
+ * Write to a file and execute the file (for a web shortcut for instance).
+ * @param filePath
+ * @param theText
+ */
+Utils.write_exec = function(filePath, theText) {
+    try {
+        var _file = new File(filePath);
+        _file.open( 'w' );
+        _file.write( theText );
+        _file.close();
+        _file.execute();
+        // _file.remove();
+    }
+    catch(e) {
+        try {
+            _file.close();
+            // _file.remove();
+        }
+        catch(e) {
+            /* This will likely fail but just in case, clean up after ourselves and move on. */
+        }
+        Utils.dump("[Utils.write_exec()] " + e.message);
+        throw new Error(e.message);
     }
     return true;
 };

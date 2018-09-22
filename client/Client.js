@@ -33,6 +33,24 @@ var API_KEY,
 
 var Config = window.Config || {};
 
+/**
+ * Flyout Menu items.
+ * @type {{
+ *    GET_TOKEN: string,
+ *    ABOUT_PAGE: string,
+ *    HOME_PAGE: string,
+ *    SHOP_PLUGINS: string,
+ *    ENTER_TOKEN: string
+ * }}
+ */
+var MENU_ITEMS = {
+    GET_TOKEN    : "getApiToken",
+    ABOUT_PAGE   : "aboutAstuteGraphics",
+    HOME_PAGE    : "astuteGraphicsHome",
+    SHOP_PLUGINS : "shopAstuteGraphics",
+    ENTER_TOKEN  : "enterApiToken"
+};
+
 $(function() {
 
     var csInterface = new CSInterface();
@@ -154,7 +172,8 @@ $(function() {
     Client.init = function() {
 
         var $message   = $("#message");
-        var $button    = $("#button");
+        var $buttonSRP = $("#button-srp");
+        var $buttonMTT = $("#button-mtt");
         var $range     = $("#tolerance");
         var $rangeval  = $("#tolerance-value");
         var data       = null;
@@ -169,11 +188,18 @@ $(function() {
                 $range.blur();
             });
 
-            $button.mouseup(function(evt) {
+            $buttonSRP.mouseup(function(evt) {
                 evt.preventDefault();
-                console.log("Client.processSelection");
-                Client.processSelection();
-                $button.blur();
+                console.log("Client.smartRemovePoints()");
+                Client.smartRemovePoints();
+                $buttonSRP.blur();
+            });
+
+            $buttonMTT.mouseup(function(evt) {
+                evt.preventDefault();
+                console.log("Client.moveToTangents()");
+                Client.moveToTangents();
+                $buttonMTT.blur();
             });
 
             Client.initFlyoutMenu();
@@ -182,16 +208,29 @@ $(function() {
     };
 
     /**
-     * Create Astui data payload string.
+     * Create Astui Smart Remove Point data payload string.
      * @param   {string}    svgPathData
      * @param   {integer}   accuracy
      * @returns {string}
      */
-    Client.formatAstuiPayload = function(svgPathData, accuracy ) {
+    Client.formatSmartRemovePayload = function(svgPathData, accuracy ) {
         return "path="    + svgPathData +
             "&tolerance="  + accuracy +
             "&api_token=" + Config.API_KEY +
             "&decimal=1";
+    };
+
+    /**
+     * Create Astui Move To Tangents data payload string.
+     * @param   {string}    svgPathData
+     * @param   {integer}   accuracy
+     * @returns {string}
+     */
+    Client.formatMoveToTangentsPayload = function(svgPathData, accuracy ) {
+        return "path="    + svgPathData +
+            "&tolerance="  + accuracy +
+            "&api_token=" + Config.API_KEY +
+            "&angle=45";
     };
 
     /**
@@ -202,13 +241,19 @@ $(function() {
 
         var $svg,
             $path,
-            thePayload;
+            thePayload,
+            endPointName;
 
         console.log(typeof(csxsEvent));
         console.log(csxsEvent);
 
         if (isString(csxsEvent)) {
             csxsEvent = JSON.parse(csxsEvent);
+        }
+
+        endPointName = 'ssr';
+        if (csxsEvent.type == 'moveToTangents') {
+            endPointName = 'tangencies';
         }
 
         try {
@@ -222,14 +267,18 @@ $(function() {
 
                     $path = $(this);
 
-                    thePayload = Client.formatAstuiPayload(
+                    thePayload = Client.formatSmartRemovePayload(
                         $("path", $svg).attr("d"),
                         $("#tolerance").val()
                     );
 
+                    if (csxsEvent.type == 'moveToTangents') {
+                        thePayload = concat(thePayload, 'angle=45', '&');
+                    }
+
                     $.ajax({
                         method  : "POST",
-                        url     : Config.API_ENDPOINT,
+                        url     : concat(Config.API_ENDPOINT, endPointName, '/'),
                         data    : thePayload,
                         async   : false,
                         headers : {
@@ -241,7 +290,6 @@ $(function() {
                     .done(function(result) {
 
                         $path.attr('d', result.path);
-                        // $path.attr('fill', '#FFAA00');
 
                         Client.updatePathDataCallback($svg, {
                             uuid : csxsEvent.data.uuid,
@@ -288,9 +336,18 @@ $(function() {
      * Call Host.processSelection().
      * @param tolerance
      */
-    Client.processSelection = function() {
-        csInterface.addEventListener( 'processPathPoint', Client.sendPathPointToAstui );
-        csInterface.evalScript( 'Host.processSelection("processPathPoint")', Client.info );
+    Client.smartRemovePoints = function() {
+        csInterface.addEventListener( 'smartRemovePoint', Client.sendPathPointToAstui );
+        csInterface.evalScript( 'Host.processSelection("smartRemovePoint")', Client.info );
+    };
+
+    /**
+     * Call Host.processSelection().
+     * @param tolerance
+     */
+    Client.moveToTangents = function() {
+        csInterface.addEventListener( 'moveToTangents', Client.sendPathPointToAstui );
+        csInterface.evalScript( 'Host.processSelection("moveToTangents")', Client.info );
     };
 
     /**
@@ -415,11 +472,13 @@ $(function() {
      */
     Client.initFlyoutMenu = function() {
         var Menu = new FlyoutMenu();
-        Menu.add('enterLicenseKey', 'Enter License Token', true, false, false);
+        Menu.add( MENU_ITEMS.ENTER_TOKEN,  'Enter API Token',           true, false, false );
+        Menu.add( MENU_ITEMS.GET_TOKEN,    'Get a API Token',           true, false, false );
         Menu.divider();
-        Menu.add('getLicenseKey', 'Get a License Token', true, false, false);
-        Menu.add('aboutAstuteGraphics', 'About Astute Graphics', true, false, false);
-        Menu.setHandler(Client.flyoutMenuClickedHandler);
+        Menu.add( MENU_ITEMS.ABOUT_PAGE,   'About Astute Graphics',     true, false, false );
+        Menu.add( MENU_ITEMS.HOME_PAGE,    'Astute Graphics Home Page', true, false, false );
+        Menu.add( MENU_ITEMS.SHOP_PLUGINS, 'Shop for Plugins',          true, false, false );
+        Menu.setHandler( Client.flyoutMenuClickedHandler );
         Menu.build();
     };
 
@@ -428,23 +487,28 @@ $(function() {
      * @param event
      */
     Client.flyoutMenuClickedHandler = function(event) {
-
-        // the event's "data" attribute is an object, which contains "menuId" and "menuName"
-
         switch (event.data.menuId) {
-            case "getLicenseKey":
-                //@TODO: Redirect to get license key.
-                csInterface.evalScript('Host.showAlert("Not yet implemented")', Client.info);
+            case MENU_ITEMS.GET_TOKEN :
+                Client.openUrl(
+                    'mailto:enquiries@astutegraphics.com?subject=Astui Enquiry&' +
+                    'body=Please send me information on how to obtain an ASTUI API token.'
+                );
                 break;
 
-            case "aboutAstuteGraphics":
-                csInterface.evalScript('Host.openUrl("astutegraphics.com")');
+            case MENU_ITEMS.ABOUT_PAGE :
+                Client.openUrl( 'https://astutegraphics.com/about-us/' );
                 break;
-            case 'enterLicenseKey':
-                csInterface.evalScript(
-                    'Host.saveApiToken()',
-                    Client.validateLicenseKey
-                );
+
+            case MENU_ITEMS.HOME_PAGE :
+                Client.openUrl( 'https://astutegraphics.com/' );
+                break;
+
+            case MENU_ITEMS.SHOP_PLUGINS :
+                Client.openUrl( 'https://astutegraphics.com/bundles/' );
+                break;
+
+            case MENU_ITEMS.ENTER_TOKEN :
+                csInterface.evalScript('Host.saveApiToken()', Client.validateLicenseKey);
                 break;
 
             default:
@@ -453,22 +517,19 @@ $(function() {
     };
 
     /**
+     * Interface to Host to open a web page in the default browser.
+     * @param address
+     */
+    Client.openUrl = function(address) {
+        csInterface.evalScript('Host.openUrl("' + address + '")', Client.info);
+    };
+
+    /**
      * Validate the user input and save API_KEY to settings file.
      * @param result
      */
     Client.validateLicenseKey = function(result) {
-        var configJson, settingsFile;
-
-        console.log("Client.validateLicenseKey : result -> " + result);
-
         try {
-            // // Client.getSettings();
-            // if (API_KEY = Client.validate(result).value) {
-            //     settingsFile = Config.DOCUMENTS + '/' + Config.APP_NAME + '/settings.json';
-            //     Config.API_KEY = API_KEY;
-            //     console.log("New Config : " + JSON.stringify(Config));
-            //     Client.write(settingsFile, JSON.stringify(Config), true, 'JSON');
-            // }
             Client.getSettings();
         }
         catch(e) {
