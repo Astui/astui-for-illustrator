@@ -239,6 +239,8 @@ $(function() {
      */
     Client.sendPathPointToAstui = function(csxsEvent) {
 
+        csInterface.evalScript('Host.dump("Client.sendPathPointToAstui started")', Client.info);
+
         var $svg,
             $path,
             thePayload,
@@ -256,14 +258,29 @@ $(function() {
             endPointName = 'tangencies';
         }
 
+        csInterface.evalScript('Host.dump("CSXSEvent.type = ' + csxsEvent.type + '")', Client.info);
+
         try {
             if (svgPathData = csxsEvent.data) {
+
+                csInterface.evalScript('Host.dump("Client.sendPathPointToAstui got SVG path data")', Client.info);
 
                 $svg = removeEmptyNodes(
                     $.parseXML(svgPathData.svg)
                 );
 
+                csInterface.evalScript('Host.dump("' + $svg + '")', Client.info);
+
+                try {
+                    csInterface.evalScript('Host.dump("$svg.size() = ' + $("path", $svg).size() + '")', Client.info);
+                }
+                catch(e) {
+                    csInterface.evalScript('Host.dump("Client.sendPathPointToAstui Error : ' + e.message + '")', Client.info);
+                }
+
                 $("path", $svg).each(function(i) {
+
+                    csInterface.evalScript('Host.dump("Client.sendPathPointToAstui got path "' + i + '")', Client.info);
 
                     $path = $(this);
 
@@ -275,6 +292,8 @@ $(function() {
                     if (csxsEvent.type == 'moveToTangents') {
                         thePayload = concat(thePayload, 'angle=45', '&');
                     }
+
+                    csInterface.evalScript('Host.dump("Client.sendPathPointToAstui make ajax call")', Client.info);
 
                     $.ajax({
                         method  : "POST",
@@ -289,6 +308,8 @@ $(function() {
                     })
                     .done(function(result) {
 
+                        csInterface.evalScript('Host.dump("Client.sendPathPointToAstui ajax call successful")', Client.info);
+
                         $path.attr('d', result.path);
 
                         Client.updatePathDataCallback($svg, {
@@ -298,6 +319,7 @@ $(function() {
                         });
                     })
                     .fail(function(result) {
+                        csInterface.evalScript('Host.dump("Client.sendPathPointToAstui ajax call failed")', Client.info);
                         Client.write( Config.COMMON_LOG, "[Client.sendPathPointToAstui] " + result, true );
                         console.error( "[Client.sendPathPointToAstui] " + result );
                         throw new Error("[Client.sendPathPointToAstui] " + result);
@@ -307,6 +329,7 @@ $(function() {
         }
         catch(e) {
             console.error(e);
+            csInterface.evalScript('Host.dump("Client.sendPathPointToAstui Error : ' + e.message + '")', Client.info);
             throw new Error(e);
         }
     };
@@ -317,17 +340,23 @@ $(function() {
      */
     Client.updatePathDataCallback = function($svg, newPathData) {
 
-        Client.write(
+        csInterface.evalScript('Host.dump("Client.updatePathDataCallback started")', Client.info);
+
+        var wasWritten = Client.write(
             newPathData.file.replace(".svg", "-2.svg"),
             xmlToString($svg),
             true,
             'SVG '
         );
 
+        Client.dump( "New SVG file written : " + wasWritten );
+
         var fileData = {
             uuid : newPathData.uuid,
             file : newPathData.file.replace(".svg", "-2.svg")
         };
+
+        Client.dump("Host.updatePathData(" + JSON.stringify(fileData) + ")");
 
         csInterface.evalScript( "Host.updatePathData('" + JSON.stringify(fileData) + "')", Client.info );
     };
@@ -338,6 +367,7 @@ $(function() {
      */
     Client.smartRemovePoints = function() {
         csInterface.addEventListener( 'smartRemovePoint', Client.sendPathPointToAstui );
+        csInterface.evalScript('Host.dump("Host.processSelection(smartRemovePoints) started")', Client.info);
         csInterface.evalScript( 'Host.processSelection("smartRemovePoint")', Client.info );
     };
 
@@ -347,6 +377,7 @@ $(function() {
      */
     Client.moveToTangents = function() {
         csInterface.addEventListener( 'moveToTangents', Client.sendPathPointToAstui );
+        csInterface.evalScript('Host.dump("Host.processSelection(moveToTangents) started")', Client.info);
         csInterface.evalScript( 'Host.processSelection("moveToTangents")', Client.info );
     };
 
@@ -422,6 +453,14 @@ $(function() {
         catch(e) {
             console.error("Client.writeHandler : " + e.message);
         }
+    };
+
+    /**
+     * Passthrough function to call Utils.dump in the Host.
+     * @param {string} message
+     */
+    Client.dump = function(message) {
+        csInterface.evalScript('Host.dump("' + message + '")', Client.info);
     };
 
     /**

@@ -85,7 +85,7 @@ var _GLOBALS = {
      * Whether or not the ExternalObjectLib is loaded
      * @type {boolean}
      */
-    ExternalObjectIsLoadedLib : false,
+    ExternalObjectLib : false,
     /**
      * The settings file path.
      * @type {string}
@@ -178,11 +178,12 @@ var Host = (function(Config) {
      * @private
      */
     function _loadExternalObject() {
-        if (_GLOBALS.ExternalObjectLib) return true;
+        if (isTrue(_GLOBALS.ExternalObjectLib)) return true;
         try {
             if (new ExternalObject("lib:\PlugPlugExternalObject")) {
+                Utils.dump("[lib:PlugPlugExternalObject] loaded");
                 ExternalObjectIsLoadedLib = true;
-                return true;
+                return ExternalObjectIsLoadedLib;
             }
         }
         catch (e) {
@@ -208,11 +209,43 @@ var Host = (function(Config) {
         try {
             if (selection = _verifySelection()) {
 
+                Utils.dump("[selection = _verifySelection()] Selection verified");
+
+                try {
+                    Utils.dump(" ******* START : selection ******* ");
+                    Utils.dump(selection);
+                    Utils.dump(" ******* END : selection ******* ");
+                }
+                catch(e) {
+                    Utils.dump("Could not inspect selection");
+                }
+
+                try {
+                    Utils.dump("selection.pathItems : " + selection.pathItems.length);
+                }
+                catch(e) {
+                    Utils.dump("Could not get selection.pathItems.length");
+                }
+
+                try {
+                    Utils.dump("selection.groupItems : " + selection.groupItems.length);
+                }
+                catch(e) {
+                    Utils.dump("Could not get selection.groupItems.length");
+                }
+
                 for (var iter in selection) {
 
                     var thisItem = selection[iter];
 
-                    Utils.dump(thisItem.typename);
+                    Utils.dump(" ******* START : thisItem ******* ");
+                    Utils.dump(thisItem);
+                    Utils.dump(" ******* END : thisItem ******* ");
+
+                    Utils.dump("[var thisItem = selection[iter]] typename: " + thisItem.typename);
+
+                    // If there is no typename, ignore it.
+                    if (! isDefined(thisItem.typename)) continue;
 
                     // Ignore member functions.
                     if (isFunction( thisItem ) ) continue;
@@ -225,7 +258,7 @@ var Host = (function(Config) {
 
                     if (isPathItem(thisItem)) {
 
-                        _logger.info("[isPathItem(thisItem)]");
+                        Utils.dump("[isPathItem(thisItem)] true");
 
                         if ( _loadExternalObject() ) {
                             thisItem.name += " : " + uuid;
@@ -237,6 +270,7 @@ var Host = (function(Config) {
                                     file: Config.LOGFOLDER + "/" + uuid + ".svg"
                                 })
                             );
+                            Utils.dump("theCustomEvent:" + JSON.stringify(theCustomEvent));
                             theCustomEvent.dispatch();
                         }
                         else {
@@ -245,7 +279,7 @@ var Host = (function(Config) {
                     }
                     else if (isCompoundPathItem(thisItem)) {
                         // TODO: Not yet implemented
-                        _logger.error("isCompoundPathItem(thisItem) is not yet implemented");
+                        Utils.dump("Error : isCompoundPathItem(thisItem) is not yet implemented");
                     }
                     else {
                         continue;
@@ -258,7 +292,7 @@ var Host = (function(Config) {
         }
         catch(e) {
             errorMessage = e.message;
-            _logger.error(errorMessage);
+            Utils.dump("Error : " + errorMessage);
         }
         return errorMessage || "Host.processSelection completed";
     };
@@ -272,21 +306,21 @@ var Host = (function(Config) {
      */
     function _processPathItem(thePathItem, uuid) {
         var svgData;
+
         try {
-            filepath = Config.LOGFOLDER + "/" + uuid + ".svg";
-            if (svgFile = _exporter.selectionToSVG(selection, filepath)) {
-                if (isObject(svgFile)) {
-                    svgData = Utils.read(svgFile);
-                }
-                else {
-                    throw new Error("Could not read SVG file");
-                }
+            svgFile = _exporter.selectionToSVG(selection, Config.LOGFOLDER + "/" + uuid + ".svg")
+
+            if (! isObject(svgFile)) {
+                throw new Error("Could not export selection to SVG");
             }
-            else {
-                throw new Error("Could save selection to SVG");
+            svgData = Utils.read(svgFile);
+
+            if (! svgData) {
+                throw new Error("Could not read exported SVG file");
             }
         }
         catch(e) {
+            Utils.dump("Error : " + e.message);
             throw new Error(e);
         }
         return svgData;
@@ -309,6 +343,7 @@ var Host = (function(Config) {
      * @private
      */
     function _getNewCSEvent(type, data) {
+        Utils.dump("Create new CSXSEvent(" + type + ", " + data + ")");
         var event  = new CSXSEvent();
         event.type = type;
         event.data = data;
@@ -331,48 +366,50 @@ var Host = (function(Config) {
         doc = app.activeDocument;
 
         try {
-            if (pathDataObject = JSON.parse(pathData)) {
 
-                theItem = _getPathItemByUUID(pathDataObject.uuid);
+            Utils.dump("_updatePathData(pathData)[pathData] " + pathData);
 
-                if (isDefined(theItem)) {
-                    if (isDefined(pathDataObject.file)) {
-                        f = new File(pathDataObject.file);
-                        if (f.exists) {
-                            if (thePlacedItem = doc.groupItems.createFromFile(f)) {
+            pathDataObject = JSON.parse(pathData);
 
-                                thePlacedPathItem = thePlacedItem.pathItems[0];
-
-                                Utils.dump("Set PathItem position");
-                                thePlacedPathItem.position = theItem.position;
-
-                                Utils.dump("Set PathItem PathPoints");
-                                copyPathPoints(theItem, thePlacedPathItem);
-
-                                thePlacedItem.remove();
-                                theItem.name = theItem.name.replace(" : " + pathDataObject.uuid);
-                            }
-                            else {
-                                throw new Error("Could not import the updated SVG object");
-                            }
-                        }
-                        else {
-                            throw new Error(f.path + " does not exist");
-                        }
-                    }
-                    else {
-                        throw new Error("pathObject.file is not defined");
-                    }
-                }
-                else {
-                    throw new Error("theItem is not defined");
-                }
-            }
-            else {
+            // Make sure we were able to parse the JSON response.
+            if ( ! isObject(pathDataObject)) {
                 throw new Error("Could not parse pathData");
             }
+
+            theItem = _getPathItemByUUID(pathDataObject.uuid);
+
+            if ( ! isDefined(theItem)) {
+                throw new Error("theItem is not defined");
+            }
+            else if ( ! isDefined(pathDataObject.file)) {
+                throw new Error("pathDataObject.file is not defined");
+            }
+
+            f = new File(pathDataObject.file);
+
+            if ( ! f.exists) {
+                throw new Error(f.path + " does not exist");
+            }
+
+            thePlacedItem = doc.groupItems.createFromFile(f);
+
+            if ( ! isDefined(thePlacedItem)) {
+                throw new Error("Could not import the updated SVG object");
+            }
+
+            thePlacedPathItem = thePlacedItem.pathItems[0];
+
+            Utils.dump("Set PathItem position");
+            thePlacedPathItem.position = theItem.position;
+
+            Utils.dump("Set PathItem PathPoints");
+            copyPathPoints(theItem, thePlacedPathItem);
+
+            thePlacedItem.remove();
+            theItem.name = theItem.name.replace(" : " + pathDataObject.uuid);
         }
         catch(e) {
+            Utils.dump("_updatePathData(pathData) Error : " + e.message);
             throw new Error(e);
         }
 
@@ -394,10 +431,14 @@ var Host = (function(Config) {
 
             for (var iter in selection) {
 
-                var thisItem = selection[iter];
+                thisItem = selection[iter];
+
+                Utils.dump("[typename(selection[iter])] " + getTypename(selection[iter]));
 
                 if (isPathItem(thisItem)) {
+                    Utils.dump("[if (isPathItem(thisItem)):typename] " + getTypename(thisItem));
                     if (uuid = _getUuidFromName(thisItem.name)) {
+                        Utils.dump("[_getPathItemByUUID] " + thisItem.name);
                         return thisItem;
                     }
                 }
@@ -420,10 +461,12 @@ var Host = (function(Config) {
      * @private
      */
     function _getUuidFromName(itemName) {
+        var theUuid;
         if (itemName.split(":").length > 1) {
-            return itemName.split(":").pop();
+            theUuid = itemName.split(":").pop();
+            Utils.dump("[_getUuidFromName:uuid] " + theUuid);
         }
-        return null;
+        return theUuid;
     }
 
     /**
@@ -588,6 +631,11 @@ var Host = (function(Config) {
          */
         getSettings: function() {
             return _getSettings();
+        },
+
+        dump: function(what) {
+            Utils.dump(what);
+            return true;
         }
     }
 

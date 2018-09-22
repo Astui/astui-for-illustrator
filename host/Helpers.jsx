@@ -65,6 +65,16 @@ function isTypename(theItem, theTypename) {
 }
 
 /**
+ * Get the typename of an object if it is set.
+ * @param   {object}    theItem
+ * @returns {string|null}
+ */
+function getTypename(theItem) {
+    if (isDefined(theItem.typename)) return theItem.typename;
+    return "undefined";
+}
+
+/**
  * Is theItem an object?
  * @param   {*} theItem
  * @returns {*}
@@ -100,6 +110,35 @@ function isString(theItem) {
  */
 function isNumber(theItem) {
     return ! isNaN(theItem);
+}
+
+/**
+ * Determine if a value is true-ish.
+ * USE ONLY with strings, ints, and booleans.
+ * @param what
+ * @returns {boolean}
+ */
+function isTrue(what) {
+
+    if (isTrue === true)     return true;
+
+    if (isString(what)) {
+        var truish = [
+            'yes', 'oui', 'ja', 'da',
+            'si', 'yeah', 'yep', 'yup',
+            'fuck yes', 'fuck yeah', 'fuckin a',
+            'you know it', 'of course'
+        ];
+        what = what.toLowerCase();
+        if (what === "true")     return true;
+        if (truish.indexOf(what) != -1) return true;
+    }
+
+    if (! isNaN(what)) {
+        if (parseInt(what) > 0) return true;
+    }
+
+    return false;
 }
 
 /**
