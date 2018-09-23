@@ -244,7 +244,7 @@ function slash(url) {
  * @param   {string} divider
  * @returns {string}
  */
-function concat(base, add, divider) {
+function tackon(base, add, divider) {
     if (base.charAt(base.length-1) != divider) {
         base += divider;
     }

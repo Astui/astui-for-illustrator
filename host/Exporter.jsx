@@ -106,7 +106,7 @@ Exporter.prototype.createDocument = function(width, height, colorMode) {
         this.logger.error("[" + $.fileName + "][" + $.line + "] - width : "     + width);
         this.logger.error("[" + $.fileName + "][" + $.line + "] - height : "    + height);
         this.logger.error("[" + $.fileName + "][" + $.line + "] - colorMode : " + colorMode);
-        throw "[" + $.fileName + "][" + $.line + "] - " + $.error;
+        throw "Exporter.createDocument() failed - " + e.message;
     }
 
     return doc;
@@ -130,7 +130,7 @@ Exporter.prototype.copyObjectsToDoc = function(objects, destinationDocument) {
         this.logger.error("[" + $.fileName + "][" + $.line + "] - e.message : " + e.message);
         this.logger.error("[" + $.fileName + "][" + $.line + "] - objects : " + objects);
         this.logger.error("[" + $.fileName + "][" + $.line + "] - destinationDocument : " + destinationDocument);
-        throw "[" + $.fileName + "][" + $.line + "] - " + $.error;
+        throw "Exporter.copyObjectsToDoc() failed - " + e.message;
     }
     return true;
 };
@@ -157,97 +157,6 @@ Exporter.prototype.svgExportOptions = function() {
     options.embedRasterImages = false;
     options.fontType          = SVGFontType.OUTLINEFONT;
     return options;
-};
-
-/**
- * Export selection to PNG.
- * @param selection
- * @param filePath
- * @returns {File}
- */
-Exporter.prototype.selectionToPNG = function(selection, filePath) {
-    throw this._notImplemented;
-};
-
-/**
- * Export selection to JPG.
- * @param selection
- * @param filePath
- * @returns {File}
- */
-Exporter.prototype.selectionToJPG = function(selection, filePath) {
-    throw this._notImplemented;
-};
-
-/**
- * Export layer to SVG.
- * @param selection
- * @param filePath
- */
-Exporter.prototype.layerToSVG = function(layer, filePath) {
-    throw this._notImplemented;
-};
-
-/**
- * Export artboard to SVG.
- * @param artboard
- * @param filePath
- */
-Exporter.prototype.artboardToSVG = function(artboard, filePath) {
-    throw this._notImplemented;
-};
-
-/**
- * Export selection to PDF.
- * @param selection
- * @param filePath
- * @returns {File}
- */
-Exporter.prototype.selectionToPDF = function(selection, filePath) {
-    throw this._notImplemented;
-};
-
-/**
- * Export a selection to SVG.
- * @param {selection} selection The app.activeDocument.selection object.
- * @param {string}    filePath  The file path to save the document to.
- *
- * Export selection to SVG - export_selection_as_SVG
- * (Adapted from Layers to SVG 0.1 - layers_export.jsx, by Anton Ball)
- * @author  Rhys van der Waerden
- * @url     https://gist.github.com/SebCorbin/4af974231068ed4ab457
- */
-Exporter.prototype.selectionToSVG = function(selection, filepath) {
-
-    /**
-     * Local variables.
-     * @type {boolean}
-     * @type {ExportOptionsSVG}
-     */
-    var targetFile,
-        svgExportOptions,
-        ignoreHidden = true;
-
-    try {
-        svgExportOptions = this.svgExportOptions();
-        targetFile = this.exportFile(
-            selection,
-            filepath,
-            ExportType.SVG,
-            svgExportOptions
-        );
-    }
-    catch(e) {
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - SVG export failed - " + e.message );
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - svgExportOptions : "  + svgExportOptions );
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - filepath : "          + filepath );
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - selection : "         + selection);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - targetFile : "        + targetFile);
-
-        throw "[" + $.fileName + "][" + $.line + "] - SVG export failed - " + e.message ;
-    }
-
-    return targetFile;
 };
 
 /**
@@ -296,8 +205,100 @@ Exporter.prototype.exportFile = function(selection, filepath, exportType, export
         this.logger.error("[" + $.fileName + "][" + $.line + "] - filepath : "          + filepath);
         this.logger.error("[" + $.fileName + "][" + $.line + "] - selection : "         + selection);
         this.logger.error("[" + $.fileName + "][" + $.line + "] - targetFile : "        + targetFile);
-        throw "[" + $.fileName + "][" + $.line + "] - Target file was not created . " + e.message;
+        throw "Exporter.exportFile() failed - " + e.message;
     }
 
     return targetFile;
+};
+
+
+/**
+ * Export a selection to SVG.
+ * @param {selection} selection The app.activeDocument.selection object.
+ * @param {string}    filePath  The file path to save the document to.
+ *
+ * Export selection to SVG - export_selection_as_SVG
+ * (Adapted from Layers to SVG 0.1 - layers_export.jsx, by Anton Ball)
+ * @author  Rhys van der Waerden
+ * @url     https://gist.github.com/SebCorbin/4af974231068ed4ab457
+ */
+Exporter.prototype.selectionToSVG = function(selection, filepath) {
+
+    /**
+     * Local variables.
+     * @type {boolean}
+     * @type {ExportOptionsSVG}
+     */
+    var targetFile,
+        svgExportOptions,
+        ignoreHidden = true;
+
+    try {
+        svgExportOptions = this.svgExportOptions();
+        targetFile = this.exportFile(
+            selection,
+            filepath,
+            ExportType.SVG,
+            svgExportOptions
+        );
+    }
+    catch(e) {
+        this.logger.error("[" + $.fileName + "][" + $.line + "] - SVG export failed - " + e.message );
+        this.logger.error("[" + $.fileName + "][" + $.line + "] - svgExportOptions : "  + svgExportOptions );
+        this.logger.error("[" + $.fileName + "][" + $.line + "] - filepath : "          + filepath );
+        this.logger.error("[" + $.fileName + "][" + $.line + "] - selection : "         + selection);
+        this.logger.error("[" + $.fileName + "][" + $.line + "] - targetFile : "        + targetFile);
+        throw "Exporter.selectionToSVG() failed  - " + e.message ;
+    }
+
+    return targetFile;
+};
+
+
+/**
+ * Export selection to PNG.
+ * @param selection
+ * @param filePath
+ * @returns {File}
+ */
+Exporter.prototype.selectionToPNG = function(selection, filePath) {
+    throw this._notImplemented;
+};
+
+/**
+ * Export selection to JPG.
+ * @param selection
+ * @param filePath
+ * @returns {File}
+ */
+Exporter.prototype.selectionToJPG = function(selection, filePath) {
+    throw this._notImplemented;
+};
+
+/**
+ * Export layer to SVG.
+ * @param selection
+ * @param filePath
+ */
+Exporter.prototype.layerToSVG = function(layer, filePath) {
+    throw this._notImplemented;
+};
+
+/**
+ * Export artboard to SVG.
+ * @param artboard
+ * @param filePath
+ */
+Exporter.prototype.artboardToSVG = function(artboard, filePath) {
+    throw this._notImplemented;
+};
+
+/**
+ * Export selection to PDF.
+ * @param selection
+ * @param filePath
+ * @returns {File}
+ */
+Exporter.prototype.selectionToPDF = function(selection, filePath) {
+    throw this._notImplemented;
 };

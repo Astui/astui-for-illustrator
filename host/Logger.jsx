@@ -93,6 +93,8 @@ function Logger(name, folder, logLevel) {
 
 };
 
+Logger.prototype.DEBUG = true;
+
 /**
  * Logger prototype.
  * @type {{

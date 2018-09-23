@@ -415,6 +415,30 @@ Utils.read_json = function(theFile) {
 }
 
 /**
+ * Remove the contents of a directory by file type.
+ * This method does NOT delete the directory, only the contents.
+ * @param {string} dirPath  The directory to clear.
+ * @param {string} pattern  The file pattern to match
+ *
+ */
+Utils.rmdir = function(dirPath, pattern) {
+    var count = 0;
+    try {
+        var files = new Folder(dirPath).getFiles(pattern);
+        if (files.length) {
+            for (var i=0; i<files.length; i++) {
+                (new File(files[i])).remove();
+                count++;
+            }
+        }
+    }
+    catch(e) {
+        throw "Utils.remove(" + dirPath + ", " + pattern + ") - Error : " + e.message;
+    }
+    return count + " files were removed";
+};
+
+/**
  * @deprecated
  * @param {string}  filepath
  * @returns {*}
@@ -918,8 +942,22 @@ Utils.showInFinder = function(thePath) {
  */
 Utils.dump = function(what) {
     try {
-        Utils.logger(what, $.line, $.fileName);
+        if (typeof(what) == 'string') {
+            Utils.logger(what, $.line, $.fileName);
+            return;
+        }
         for (key in what) {
+            if (key == 'parent') {
+                Utils.logger(key + " => [object]");
+                continue;
+            }
+            else if (typeof(what[key]) == 'function') {
+                Utils.logger(key + " => function(){}");
+                continue;
+            }
+            else if (typeof(what[key]) == 'object') {
+                Utils.dump(what[key]);
+            }
             Utils.logger(key + " => " + what[key], $.line, $.fileName)
         }
     }
@@ -929,10 +967,38 @@ Utils.dump = function(what) {
 };
 
 /**
+ * Recursively reflect the properties of an object.
+ * @param {object}  obj
+ * @param {string}  stack
+ */
+Utils.inspect = function(obj, stack) {
+    try {
+        for (var property in obj) {
+            if ('property' == 'parent') {
+                Utils.logger(stack + (stack == '' ? '' : '.') + property + ' => [object]');
+                continue;
+            }
+            if (typeof obj[property] == 'function') {
+                Utils.logger(stack + (stack == '' ? '' : '.') + property + ' => function(){}');
+                continue;
+            }
+            if (typeof obj[property] == 'object') {
+                Utils.inspect(obj[property], stack + '.' + property);
+            }
+            Utils.logger(stack + (stack == '' ? '' : '.') + property);
+        }
+    }
+    catch(e) {
+        Utils.logger("Utils.reflect error - " + e.message);
+    }
+    return stack;
+};
+
+/**
  * Dump an object to the log.
  * @param what
  */
-Utils.inspect = function(what) {
+Utils._inspect = function(what) {
     var inspection = "";
     try {
         for (key in what) {

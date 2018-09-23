@@ -58,7 +58,8 @@ var Config = {
     LOGFOLDER        : '~/Downloads/astui-for-illustrator',
     API_KEY          : 'YOUR_API_KEY',
     API_ENDPOINT     : 'ASTUI_API_ENDPIONT',
-    COMMON_LOG       : '~/Downloads/astui-for-illustrator/common.log'
+    COMMON_LOG       : '~/Downloads/astui-for-illustrator/common.log',
+    LOG_LEVEL        : 1
 };
 
 /**
@@ -90,11 +91,28 @@ var _GLOBALS = {
      * The settings file path.
      * @type {string}
      */
-    SETTINGS_FILE_PATH : Folder.myDocuments + "/astui-for-illustrator/settings.json"
+    SETTINGS_FILE_PATH : Folder.myDocuments + "/astui-for-illustrator/settings.json",
+
+    /**
+     * The selected items.
+     * @type {array}
+     */
+    selected : [],
+
+    /**
+     * The selected pathItems.
+     * @type {array}
+     */
+    pathItems : []
 };
 
 Utils.dump({name: 'CONFIG',   value: Utils.inspect(Config) });
 Utils.dump({name: '_GLOBALS', value: Utils.inspect(_GLOBALS) });
+
+/**
+ * The global document object.
+ */
+var doc = app.activeDocument;
 
 /**
  * Run the script using the Module patter.
@@ -106,6 +124,12 @@ var Host = (function(Config) {
      * @type {Logger}
      */
     var _logger   = new Logger(Config.APP_NAME, Config.LOGFOLDER, LogLevel.INFO);
+
+    /**
+     * The exporter class.
+     * @type {Exporter}
+     * @private
+     */
     var _exporter = new Exporter();
 
     /**
@@ -114,23 +138,25 @@ var Host = (function(Config) {
      */
     function _saveApiToken() {
 
-        var userInput;
+        var userInput, wasSaved;
 
-        Utils.dump( "[_saveApiToken(defaultAnswer)] : START" );
+        try {
+            userInput = prompt('Please enter your Astute Graphics API Token', Config.API_KEY);
 
-        userInput = prompt('Please enter your Astute Graphics API Token', Config.API_KEY);
-
-        if (typeof(userInput) != 'undefined' && Utils.trim(userInput) != '') {
-            Utils.dump( "[_saveApiToken() : userInput : " + userInput  );
-
-            Utils.dump( "[_saveApiToken() : save : " + userInput  );
-            Config.API_KEY = Utils.trim(userInput);
-            var wasSaved = Utils.write(
-                _GLOBALS.SETTINGS_FILE_PATH,
-                JSON.stringify(Config),
-                true, 'JSON'
-            );
-            Utils.dump( "[_saveApiToken() : wasSaved : " + wasSaved  );
+            if (typeof(userInput) != 'undefined' && Utils.trim(userInput) != '') {
+                Config.API_KEY = Utils.trim(userInput);
+                wasSaved = Utils.write(
+                    _GLOBALS.SETTINGS_FILE_PATH,
+                    JSON.stringify(Config),
+                    true, 'JSON'
+                );
+                if (! wasSaved) {
+                    throw "Save API Token failed : " + e.message;
+                }
+            }
+        }
+        catch(e) {
+            throw "Save API Token failed : " + e.message;
         }
 
         return JSON.stringify({value: userInput || '' });
@@ -178,10 +204,13 @@ var Host = (function(Config) {
      * @private
      */
     function _loadExternalObject() {
-        if (isTrue(_GLOBALS.ExternalObjectLib)) return true;
+        if (isTrue(_GLOBALS.ExternalObjectLib)) {
+            Utils.logger("[lib:PlugPlugExternalObject] already loaded");
+            return true;
+        }
         try {
             if (new ExternalObject("lib:\PlugPlugExternalObject")) {
-                Utils.dump("[lib:PlugPlugExternalObject] loaded");
+                Utils.logger("[lib:PlugPlugExternalObject] loaded");
                 ExternalObjectIsLoadedLib = true;
                 return ExternalObjectIsLoadedLib;
             }
@@ -200,49 +229,21 @@ var Host = (function(Config) {
     function _processSelection(callbackEventType) {
 
         var uuid,
-            filepath,
+            thisItem,
+            pathItems,
             errorMessage,
             theCustomEvent;
 
-        uuid = Utils.uuid();
-
         try {
-            if (selection = _verifySelection()) {
+            if (_verifySelection()) {
 
-                Utils.dump("[selection = _verifySelection()] Selection verified");
+                pathItems = _getSelectedPathItems();
 
-                try {
-                    Utils.dump(" ******* START : selection ******* ");
-                    Utils.dump(selection);
-                    Utils.dump(" ******* END : selection ******* ");
-                }
-                catch(e) {
-                    Utils.dump("Could not inspect selection");
-                }
+                Utils.logger("Number of PathItems : " + pathItems.length);
 
-                try {
-                    Utils.dump("selection.pathItems : " + selection.pathItems.length);
-                }
-                catch(e) {
-                    Utils.dump("Could not get selection.pathItems.length");
-                }
+                for (var i = 0; i < pathItems.length; i++) {
 
-                try {
-                    Utils.dump("selection.groupItems : " + selection.groupItems.length);
-                }
-                catch(e) {
-                    Utils.dump("Could not get selection.groupItems.length");
-                }
-
-                for (var iter in selection) {
-
-                    var thisItem = selection[iter];
-
-                    Utils.dump(" ******* START : thisItem ******* ");
-                    Utils.dump(thisItem);
-                    Utils.dump(" ******* END : thisItem ******* ");
-
-                    Utils.dump("[var thisItem = selection[iter]] typename: " + thisItem.typename);
+                    thisItem = pathItems[i];
 
                     // If there is no typename, ignore it.
                     if (! isDefined(thisItem.typename)) continue;
@@ -250,36 +251,44 @@ var Host = (function(Config) {
                     // Ignore member functions.
                     if (isFunction( thisItem ) ) continue;
 
+                    Utils.logger(" **************************** START : thisItem **************************** ");
+                    Utils.dump(thisItem);
+                    Utils.logger(" **************************** END : thisItem **************************** ");
+
+                    Utils.logger( "thisItem.typename = " + getTypename(thisItem) );
+
                     // Ignore unsupported typenames.
-                    if (! isSupported(thisItem.typename)) {
-                        _logger.info("Unsupported type - `" + thisItem.typename + "`");
+                    if (! isSupported(getTypename(thisItem))) {
+                        _logger.info("Unsupported type - `" + getTypename(thisItem) + "`");
                         continue;
                     }
 
                     if (isPathItem(thisItem)) {
 
-                        Utils.dump("[isPathItem(thisItem)] true");
+                        if (! _loadExternalObject() ) {
+                            return 'ExternalObjectLib was not loaded';
+                        }
 
-                        if ( _loadExternalObject() ) {
-                            thisItem.name += " : " + uuid;
-                            theCustomEvent = _getNewCSEvent(
-                                callbackEventType,
-                                JSON.stringify({
-                                    uuid: uuid,
-                                    svg: _processPathItem(thisItem, uuid),
-                                    file: Config.LOGFOLDER + "/" + uuid + ".svg"
-                                })
-                            );
-                            Utils.dump("theCustomEvent:" + JSON.stringify(theCustomEvent));
-                            theCustomEvent.dispatch();
-                        }
-                        else {
-                            errorMessage = 'ExternalObjectLib was not loaded';
-                        }
-                    }
-                    else if (isCompoundPathItem(thisItem)) {
-                        // TODO: Not yet implemented
-                        Utils.dump("Error : isCompoundPathItem(thisItem) is not yet implemented");
+                        uuid = thisItem.note;
+
+                        Utils.logger( 'thisItem.note (UUID) = ' + uuid );
+
+                        selection = _selectByUUID(uuid);
+
+                        Utils.logger(" **************************** START : selection = _selectByUUID(uuid) **************************** ");
+                        Utils.dump(selection);
+                        Utils.logger(" **************************** END : selection = _selectByUUID(uuid) **************************** ");
+
+                        theCustomEvent = _getNewCSEvent(
+                            callbackEventType,
+                            JSON.stringify({
+                                uuid: uuid,
+                                svg: _processPathItem(selection, uuid),
+                                file: Config.LOGFOLDER + '/' + uuid + '.svg'
+                            })
+                        );
+                        Utils.logger('theCustomEvent: ' + JSON.stringify(theCustomEvent));
+                        theCustomEvent.dispatch();
                     }
                     else {
                         continue;
@@ -292,10 +301,62 @@ var Host = (function(Config) {
         }
         catch(e) {
             errorMessage = e.message;
-            Utils.dump("Error : " + errorMessage);
+            Utils.logger("Error : " + errorMessage);
         }
         return errorMessage || "Host.processSelection completed";
     };
+
+    /**
+     * Select a PageItem by UUID stored in note field.
+     * @param uuid
+     * @private
+     */
+    function _selectByUUID(uuid) {
+        var doc = app.activeDocument;
+        for (var i = 0; i < doc.pathItems.length; i++) {
+            thisItem = doc.pathItems[i];
+            if (strcmp(thisItem.note, uuid)) {
+                _deselectAll();
+                thisItem.selected = true;
+                return doc.selection;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Store all of the selected pathItems in the _GLOBALS array.
+     * @returns {array}
+     * @private
+     */
+    function _getSelectedPathItems() {
+
+        var uuid,
+            pathItems = doc.pathItems;
+
+        _GLOBALS.selected  = [];
+        _GLOBALS.pathItems = [];
+
+        for (var i=0; i<pathItems.length; i++) {
+            uuid = pathItems[i].note;
+            pathItems[i].note = Utils.uuid();
+            if (pathItems[i].selected) {
+                _GLOBALS.selected.push(pathItems[i]);
+                _GLOBALS.pathItems[uuid] = pathItems[i];
+            }
+        }
+        return _GLOBALS.selected;
+    }
+
+    /**
+     * Deselect all page items.
+     * @private
+     */
+    function _deselectAll() {
+        for (var i = 0; i<app.activeDocument.pageItems.length; i++) {
+            app.activeDocument.pageItems[i].selected = false;
+        }
+    }
 
     /**
      * Process a selected PathItem.
@@ -304,7 +365,7 @@ var Host = (function(Config) {
      * @returns {string}
      * @private
      */
-    function _processPathItem(thePathItem, uuid) {
+    function _processPathItem(selection, uuid) {
         var svgData;
 
         try {
@@ -320,7 +381,7 @@ var Host = (function(Config) {
             }
         }
         catch(e) {
-            Utils.dump("Error : " + e.message);
+            Utils.logger("Error : " + e.message);
             throw new Error(e);
         }
         return svgData;
@@ -331,7 +392,7 @@ var Host = (function(Config) {
      * @private
      */
     function _moveToTangents() {
-        Utils.dump("Host.moveToTangents() is not yet implemented");
+        Utils.logger("Host.moveToTangents() is not yet implemented");
         throw "Host.moveToTangents() is not yet implemented";
     }
 
@@ -343,7 +404,7 @@ var Host = (function(Config) {
      * @private
      */
     function _getNewCSEvent(type, data) {
-        Utils.dump("Create new CSXSEvent(" + type + ", " + data + ")");
+        Utils.logger("Create new CSXSEvent(" + type + ", " + data + ")");
         var event  = new CSXSEvent();
         event.type = type;
         event.data = data;
@@ -359,7 +420,6 @@ var Host = (function(Config) {
         var f,
             doc,
             theItem,
-            errorMessage,
             thePlacedItem,
             pathDataObject;
 
@@ -367,7 +427,7 @@ var Host = (function(Config) {
 
         try {
 
-            Utils.dump("_updatePathData(pathData)[pathData] " + pathData);
+            Utils.logger("_updatePathData(pathData)[pathData] " + pathData);
 
             pathDataObject = JSON.parse(pathData);
 
@@ -399,21 +459,37 @@ var Host = (function(Config) {
 
             thePlacedPathItem = thePlacedItem.pathItems[0];
 
-            Utils.dump("Set PathItem position");
-            thePlacedPathItem.position = theItem.position;
+            Utils.logger("Set PathItem position");
+            try {
+                thePlacedPathItem.position = theItem.position;
+            }
+            catch(e) {
+                Utils.logger("Could not set PathItem position - " + e.message);
+            }
 
-            Utils.dump("Set PathItem PathPoints");
+            Utils.logger("Set PathItem PathPoints");
             copyPathPoints(theItem, thePlacedPathItem);
 
+            Utils.logger("Set PathItem position");
+            try {
+                thePlacedPathItem.position = theItem.position;
+            }
+            catch(e) {
+                Utils.logger("Could not set PathItem position - " + e.message);
+            }
+
+            Utils.logger("[Cleanup]  - Remove placed item");
             thePlacedItem.remove();
-            theItem.name = theItem.name.replace(" : " + pathDataObject.uuid);
+
+            Utils.logger("[Cleanup] - Remove item note");
+            thisItem.note = '';
         }
         catch(e) {
-            Utils.dump("_updatePathData(pathData) Error : " + e.message);
+            Utils.logger("_updatePathData(pathData) Error : " + e.message);
             throw new Error(e);
         }
 
-        return "Host.updatePathData completed";
+        return "Host.updatePathData completed without errors";
     };
 
     /**
@@ -424,50 +500,18 @@ var Host = (function(Config) {
      */
     function _getPathItemByUUID(uuid) {
 
-        var thisItem,
-            thePathItem;
+        var pathItems = app.activeDocument.pathItems;
 
-        if (selection = _verifySelection()) {
+        for (var i = 0; i < pathItems.length; i++) {
 
-            for (var iter in selection) {
+            if (! isPathItem(pathItems[i])) continue;
+            if (uuid != pathItems[i].note)  continue;
 
-                thisItem = selection[iter];
-
-                Utils.dump("[typename(selection[iter])] " + getTypename(selection[iter]));
-
-                if (isPathItem(thisItem)) {
-                    Utils.dump("[if (isPathItem(thisItem)):typename] " + getTypename(thisItem));
-                    if (uuid = _getUuidFromName(thisItem.name)) {
-                        Utils.dump("[_getPathItemByUUID] " + thisItem.name);
-                        return thisItem;
-                    }
-                }
-                else if (isCompoundPathItem(thisItem)) {
-                    // TODO: Not yet implemented
-                    _logger.error("isCompoundPathItem is not yet implemented");
-                }
-                else {
-                    continue;
-                }
-            }
+            Utils.logger("Host._getPathItemByUUID() : " + pathItems[i].note);
+            return pathItems[i];
         }
-        return thePathItem;
+        return false;
     };
-
-    /**
-     * Get the UUID from the item name.
-     * @param   {string}    itemName
-     * @returns {string|null}
-     * @private
-     */
-    function _getUuidFromName(itemName) {
-        var theUuid;
-        if (itemName.split(":").length > 1) {
-            theUuid = itemName.split(":").pop();
-            Utils.dump("[_getUuidFromName:uuid] " + theUuid);
-        }
-        return theUuid;
-    }
 
     /**
      * Get settings JSON from file.
@@ -478,10 +522,11 @@ var Host = (function(Config) {
         var Settings = Utils.read_json(
             _GLOBALS.SETTINGS_FILE_PATH
         );
-        Utils.dump({name: "SETTINGS", object: Settings, file: _GLOBALS.SETTINGS_FILE_PATH });
         Config.API_ENDPOINT = Settings.API_ENDPOINT;
         Config.API_KEY      = Settings.API_KEY;
         Config.COMMON_LOG   = Settings.COMMON_LOG;
+        Config.DEBUG        = Settings.DEBUG;
+        _logger.DEBUG       = Settings.DEBUG;
         Settings.DOCUMENTS  = Config.DOCUMENTS;
         Settings.APP_NAME   = Config.APP_NAME;
         return JSON.stringify(Settings);
@@ -511,6 +556,23 @@ var Host = (function(Config) {
         catch(e) {
             /* TODO: How should we handle failures? This is not a critical function so ignore it? */
         }
+    };
+
+    /**
+     * Private init method.
+     * @private
+     */
+    function _init() {
+        var errorMessage = false;
+        try {
+            Utils.rmdir(Config.LOGFOLDER, "*.svg");
+            Utils.rmdir(Config.LOGFOLDER, "*.log");
+        }
+        catch(e) {
+            errorMessage = "Could not clear the log folder - " + e.message;
+        }
+        Utils.logger(errorMessage || "Host._init() completed without errors");
+        return errorMessage || "Host._init() completed without errors";
     };
 
     /**
@@ -621,7 +683,7 @@ var Host = (function(Config) {
          * Show an alert.
          * @param message
          */
-        showAlert: function(message) {
+        alert: function(message) {
             alert(message);
         },
 
@@ -633,9 +695,21 @@ var Host = (function(Config) {
             return _getSettings();
         },
 
+        /**
+         * Show a dump of an object.
+         * @param   {*} what
+         * @returns {boolean}
+         */
         dump: function(what) {
             Utils.dump(what);
             return true;
+        },
+
+        /**
+         * Public interface to _init method.
+         */
+        init: function() {
+            return _init();
         }
     }
 
