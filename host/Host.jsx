@@ -275,9 +275,9 @@ var Host = (function(Config) {
 
                         selection = _selectByUUID(uuid);
 
-                        Utils.logger(" **************************** START : selection = _selectByUUID(uuid) **************************** ");
+                        Utils.logger(" ********** START : _selectByUUID(uuid) **************************** ");
                         Utils.dump(selection);
-                        Utils.logger(" **************************** END : selection = _selectByUUID(uuid) **************************** ");
+                        Utils.logger(" **************************** END : _selectByUUID(uuid) **************************** ");
 
                         theCustomEvent = _getNewCSEvent(
                             callbackEventType,
@@ -417,11 +417,17 @@ var Host = (function(Config) {
      */
     function _updatePathData(pathData) {
 
+        Utils.logger(" **************************** START : Host._updatePathData(pathData) **************************** ");
+        Utils.logger(" **************************** START : pathData **************************** ");
+        Utils.dump(pathData);
+        Utils.logger(" **************************** END : pathData **************************** ");
+
         var f,
             doc,
             theItem,
             thePlacedItem,
-            pathDataObject;
+            pathDataObject,
+            thePlacedGroupItem;
 
         doc = app.activeDocument;
 
@@ -436,9 +442,13 @@ var Host = (function(Config) {
                 throw new Error("Could not parse pathData");
             }
 
-            theItem = _getPathItemByUUID(pathDataObject.uuid);
+            var theItem = _getPathItemByUUID(pathDataObject.uuid);
 
-            if ( ! isDefined(theItem)) {
+            Utils.logger(" **************************** START : thisItem **************************** ");
+            Utils.dump(theItem);
+            Utils.logger(" **************************** END : thisItem **************************** ");
+
+            if (! isDefined(theItem)) {
                 throw new Error("theItem is not defined");
             }
             else if ( ! isDefined(pathDataObject.file)) {
@@ -451,15 +461,46 @@ var Host = (function(Config) {
                 throw new Error(f.path + " does not exist");
             }
 
-            thePlacedItem = doc.groupItems.createFromFile(f);
+            thePlacedGroupItem = doc.groupItems.createFromFile(f);
 
-            if ( ! isDefined(thePlacedItem)) {
+            if ( ! isDefined(thePlacedGroupItem)) {
                 throw new Error("Could not import the updated SVG object");
             }
 
-            thePlacedPathItem = thePlacedItem.pathItems[0];
+            Utils.logger(" **************************** START : thePlacedGroupItem **************************** ");
+            Utils.dump(thePlacedGroupItem);
+            Utils.logger(" **************************** END : thePlacedGroupItem **************************** ");
 
+            thePlacedPathItem = thePlacedGroupItem.pathItems[0];
+
+            Utils.logger(" **************************** START : thePlacedItem **************************** ");
+            Utils.dump(thePlacedPathItem);
+            Utils.logger(" **************************** END : thePlacedItem **************************** ");
+
+            // TODO: DEBUG
             Utils.logger("Set PathItem position");
+            try {
+                Utils.logger("thePlacedGroupItem.position => ");
+                Utils.dump(thePlacedGroupItem.position);
+            }
+            catch(e) {
+                Utils.logger("thePlacedGroupItem.position Error : " + e.message);
+            }
+            try {
+                Utils.logger("thePlacedPathItem.position => ");
+                Utils.dump(thePlacedPathItem.position);
+            }
+            catch(e) {
+                Utils.logger("thePlacedPathItem.position Error : " + e.message);
+            }
+            try {
+                Utils.logger("theItem.position => ");
+                Utils.dump(theItem.position);
+            }
+            catch(e) {
+                Utils.logger("theItem.position Error : " + e.message);
+            }
+            // TODO: END DEBUG
             try {
                 thePlacedPathItem.position = theItem.position;
             }
@@ -467,22 +508,16 @@ var Host = (function(Config) {
                 Utils.logger("Could not set PathItem position - " + e.message);
             }
 
+            Utils.logger(" **************************** START : copyPathPoints **************************** ");
             Utils.logger("Set PathItem PathPoints");
             copyPathPoints(theItem, thePlacedPathItem);
-
-            Utils.logger("Set PathItem position");
-            try {
-                thePlacedPathItem.position = theItem.position;
-            }
-            catch(e) {
-                Utils.logger("Could not set PathItem position - " + e.message);
-            }
+            Utils.logger(" **************************** END : copyPathPoints **************************** ");
 
             Utils.logger("[Cleanup]  - Remove placed item");
-            thePlacedItem.remove();
+            thePlacedPathItem.remove();
 
             Utils.logger("[Cleanup] - Remove item note");
-            thisItem.note = '';
+            theItem.note = '';
         }
         catch(e) {
             Utils.logger("_updatePathData(pathData) Error : " + e.message);

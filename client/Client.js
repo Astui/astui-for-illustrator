@@ -277,6 +277,12 @@ $(function() {
 
                         $path.attr('d', result.path);
 
+                        console.log({
+                            uuid : csxsEvent.data.uuid,
+                            file : csxsEvent.data.file,
+                            path : result.path,
+                        });
+
                         Client.updatePathDataCallback($svg, {
                             uuid : csxsEvent.data.uuid,
                             file : csxsEvent.data.file,

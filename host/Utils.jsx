@@ -940,30 +940,38 @@ Utils.showInFinder = function(thePath) {
  * Dump an object to the log.
  * @param what
  */
-Utils.dump = function(what) {
+Utils.dump = function(what, lvl, prefix) {
+    if (typeof(prefix) == 'undefined') prefix = "";
+    if (typeof(lvl) ==  'undefined') lvl = 0;
+    var indent = "";
+    for (var i=0; i<lvl; i++) {
+        indent += "    ";
+    }
+    Utils.logger(indent + (prefix ? prefix : "Object") + " => {{");
     try {
         if (typeof(what) == 'string') {
-            Utils.logger(what, $.line, $.fileName);
+            Utils.logger(indent + indent + what);
             return;
         }
         for (key in what) {
             if (key == 'parent') {
-                Utils.logger(key + " => [object]");
+                Utils.logger((lvl == 0 ? "    " : indent + indent) + key + " => [object]");
                 continue;
             }
             else if (typeof(what[key]) == 'function') {
-                Utils.logger(key + " => function(){}");
+                Utils.logger(indent + indent + key + " => function(){}");
                 continue;
             }
             else if (typeof(what[key]) == 'object') {
-                Utils.dump(what[key]);
+                Utils.dump(what[key], lvl+1, key);
             }
-            Utils.logger(key + " => " + what[key], $.line, $.fileName)
+            Utils.logger((lvl == 0 ? "    " : indent + indent) + key + " => " + what[key]);
         }
     }
     catch(e) {
         Utils.logger(e.message, $.line, $.fileName);
     }
+    Utils.logger(indent + "}} // end " + (prefix ? prefix : ""));
 };
 
 /**
