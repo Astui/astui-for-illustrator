@@ -936,42 +936,48 @@ Utils.showInFinder = function(thePath) {
     }
 };
 
+function indent(levels) {
+    var indent = "";
+    for (var i=0; i<levels; i++) {
+        indent += "    ";
+    }
+    return indent;
+}
+
 /**
  * Dump an object to the log.
  * @param what
  */
 Utils.dump = function(what, lvl, prefix) {
+
     if (typeof(prefix) == 'undefined') prefix = "";
     if (typeof(lvl) ==  'undefined') lvl = 0;
-    var indent = "";
-    for (var i=0; i<lvl; i++) {
-        indent += "    ";
-    }
-    Utils.logger(indent + (prefix ? prefix : "Object") + " => {{");
+
+    Utils.logger(indent(lvl) + (prefix ? prefix : "Object") + " => {{");
     try {
         if (typeof(what) == 'string') {
-            Utils.logger(indent + indent + what);
+            Utils.logger(indent(lvl * 2) + what);
             return;
         }
         for (key in what) {
             if (key == 'parent') {
-                Utils.logger((lvl == 0 ? "    " : indent + indent) + key + " => [object]");
+                Utils.logger((lvl == 0 ? indent(1) : indent(lvl * 2)) + key + " => [object]");
                 continue;
             }
             else if (typeof(what[key]) == 'function') {
-                Utils.logger(indent + indent + key + " => function(){}");
+                Utils.logger(indent(lvl * 2) + key + " => function(){}");
                 continue;
             }
             else if (typeof(what[key]) == 'object') {
                 Utils.dump(what[key], lvl+1, key);
             }
-            Utils.logger((lvl == 0 ? "    " : indent + indent) + key + " => " + what[key]);
+            Utils.logger((lvl == 0 ? indent(1) : indent(lvl * 2)) + key + " => " + what[key]);
         }
     }
     catch(e) {
-        Utils.logger(e.message, $.line, $.fileName);
+        Utils.logger(e.message);
     }
-    Utils.logger(indent + "}} // end " + (prefix ? prefix : ""));
+    Utils.logger(indent(lvl) + "}} // end " + (prefix ? prefix : ""));
 };
 
 /**
@@ -1000,27 +1006,4 @@ Utils.inspect = function(obj, stack) {
         Utils.logger("Utils.reflect error - " + e.message);
     }
     return stack;
-};
-
-/**
- * Dump an object to the log.
- * @param what
- */
-Utils._inspect = function(what) {
-    var inspection = "";
-    try {
-        for (key in what) {
-            if (typeof(what[key]) == 'function') {
-                inspection += typeof(what[key]) + ":" + key + " => [Function] \n";
-            }
-            else if (typeof(what[key]) == 'object') {
-                inspection += typeof(what[key]) + ":" + key + Utils.inspect(what[key]) + "\n";
-            }
-            else  {
-                inspection += typeof(what[key]) + ":" + key + " => " + what[key] + "\n";
-            }
-        }
-    }
-    catch(e) { /* Ignore errors */}
-    return inspection;
 };
