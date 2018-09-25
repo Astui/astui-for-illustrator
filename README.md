@@ -25,13 +25,13 @@ _Move Points to Tangents_ will move the points on a path to the closest tangent.
 
 ![Tangent](./images/tangents.png)
 
-## About the author
-
-This extension was written by Scott Lewis, a digital illustrator, icon designer, and software developer - yes, an odd combination. You can learn more about Scott's illustration and development work on his sites [Atomic Lotus](https://atomiclotus.net) and [Vector Icons](https://vectoricons.net).
-
 ## About the Astui API
 
 _*Astui*_ is the web-based REST API version of Astute Graphics' leading Adobe Illustrator plugin technology, AGTech. You can learn more about Astui from [the Astute Graphics website](https://astutegraphics.com/tech/sdk-web-api/) or by emailing [enquiries@astutegraphics.com](mailto:enquiries@astutegraphics.com)
+
+## About the author
+
+This extension was written by Scott Lewis, a digital illustrator, icon designer, and software developer - yes, an odd combination. You can learn more about Scott's illustration and development work on his sites [Atomic Lotus](https://atomiclotus.net) and [Vector Icons](https://vectoricons.net).
                 
 
 
