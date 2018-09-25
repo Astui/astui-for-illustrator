@@ -28,19 +28,32 @@
 
 window.Client = window.Client || {};
 
-var MY_API_KEY,
+var API_KEY,
     API_ENDPOINT;
 
 var Config = window.Config || {};
 
+/**
+ * Flyout Menu items.
+ * @type {{
+ *    GET_TOKEN: string,
+ *    ABOUT_PAGE: string,
+ *    HOME_PAGE: string,
+ *    SHOP_PLUGINS: string,
+ *    ENTER_TOKEN: string
+ * }}
+ */
+var MENU_ITEMS = {
+    GET_TOKEN    : "getApiToken",
+    ABOUT_PAGE   : "aboutAstuteGraphics",
+    HOME_PAGE    : "astuteGraphicsHome",
+    SHOP_PLUGINS : "shopAstuteGraphics",
+    ENTER_TOKEN  : "enterApiToken"
+};
+
 $(function() {
 
     var csInterface = new CSInterface();
-
-    // Ugly workaround to keep track of "checked" and "enabled" statuses
-
-    var checkableMenuItem_isChecked = true;
-    var targetMenuItem_isEnabled    = true;
 
     /**
      * Get stored settings from Host.
@@ -54,36 +67,34 @@ $(function() {
      * @param result
      */
     Client.updateSettings = function(result) {
+        var settings;
+
+        console.log(result);
+
         try {
-            if (typeof(result) != 'undefined') {
-                data = Client.validate(result);
+            if (isDefined(result)) {
+                settings = Client.validate(result);
             }
 
-            for (key in data) {
-                Config[key] = data[key];
+            for (key in settings) {
+                Config[key] = settings[key];
             }
 
-            if (typeof(data.API_ENDPOINT) != 'undefined') {
-                API_ENDPOINT = data.API_ENDPOINT;
-                Config.API_ENDPOINT = data.API_ENDPOINT;
+            if (typeof(settings.API_ENDPOINT) != 'undefined') {
+                API_ENDPOINT = settings.API_ENDPOINT;
+                Config.API_ENDPOINT = settings.API_ENDPOINT;
             }
 
-            if (typeof(data.API_KEY) != 'undefined') {
-                MY_API_KEY = data.API_KEY;
-                Config.MY_API_KEY = data.API_KEY;
+            if (typeof(settings.API_KEY) != 'undefined') {
+                API_KEY = settings.API_KEY;
+                Config.API_KEY = settings.API_KEY;
             }
+
+            console.log("Settings loaded without errors");
         }
         catch(e) {
-            console.error(e);
+            throw "[Client.updateSettings] " + e.message;
         }
-    };
-
-    /**
-     * Eval a script to run in the JSX host app.
-     * @param theScript
-     */
-    Client.eval = function(theScript) {
-        csInterface.evalScript(theScript);
     };
 
     /**
@@ -96,30 +107,31 @@ $(function() {
      */
     Client.validate = function(result) {
         var data;
+
+        console.info("[Client.validate(result)] " + result);
+
         try {
             if (! isString(result)) {
-                throw "Host returned an unknown data type";
+                console.log("[Client.validate() ... isString(result)] " + result);
+                throw "Host returned an unknown data type : " + typeof(result);
             }
 
             if (isErrorString(result)) {
-                throw result;
+                console.log("[Client.validate() ... isErrorString(result)] " + result);
+                throw "[isErrorString] " + result;
             }
 
             data = JSON.parse(result);
 
-            if (isDefined(data)) {
-                throw "Host did not return a valid value";
-            }
-            else if (isEmpty(data)) {
-                throw "Host returned an empty value";
-            }
-            else if (isObject(data)) {
+            console.log("[data = JSON.parse(result)] " + data);
+
+            if (! isObject(data)) {
+                console.log("[Client.validate() ... isObject(data)] " + JSON.stringify(data));
                 throw "Host did not return a JSON object";
             }
         }
         catch(e) {
-            console.error("Client.validate() error : " + e);
-            throw e;
+            throw "[Client.validate() ... catch(e)] " + e.message;
         }
         return data;
     };
@@ -141,28 +153,19 @@ $(function() {
     };
 
     /**
-     * Initialize the HTML UI or update with result from a JSX script callback.
-     * @param {*} result
+     * Initialize the HTML UI.
      */
-    Client.init = function(result) {
+    Client.init = function() {
 
         var $message   = $("#message");
-        var $button    = $("#button");
+        var $buttonSRP = $("#button-srp");
+        var $buttonMTT = $("#button-mtt");
         var $range     = $("#tolerance");
         var $rangeval  = $("#tolerance-value");
-        var data       = null;
 
         $rangeval.text($range.val());
 
-        // Client validate should throw an error if the validation fails,
-        // or return the expected data if it passes. Wrap the validation
-        // call in a try/catch block to trap errors.
-
         try {
-
-            if (typeof(result) != 'undefined') {
-                data = Client.validate(result).value;
-            }
 
             $range.change(function(event) {
                 console.log("Tolerance : " + $range.val());
@@ -170,95 +173,219 @@ $(function() {
                 $range.blur();
             });
 
-            $button.mouseup(function(evt) {
+            $buttonSRP.mouseup(function(evt) {
                 evt.preventDefault();
-                console.log("Client.processSelection");
-                Client.processSelection();
-                $button.blur();
+                console.log("Client.smartRemovePoints()");
+                Client.getSettings();
+                Client.smartRemovePoints();
+                $buttonSRP.blur();
             });
-        }
-        catch(e) {
-            console.error(e.message);
-        }
 
-        Client.initFlyoutMenu();
+            $buttonMTT.mouseup(function(evt) {
+                evt.preventDefault();
+                console.log("Client.moveToTangents()");
+                Client.getSettings();
+                Client.moveToTangents();
+                $buttonMTT.blur();
+            });
+
+            Client.initFlyoutMenu();
+        }
+        catch(e) { throw "[Client.init] " + e.message; }
     };
 
     /**
-     * Process the response from Astui.
-     * @param {JSON} result
+     * Create Astui Smart Remove Point data payload string.
+     * @param   {string}    svgPathData
+     * @param   {integer}   accuracy
+     * @returns {string}
      */
-    Client.sendPathPointToAstui = function(result) {
+    Client.formatSmartRemovePayload = function(svgPathData, accuracy ) {
+        return "path="    + svgPathData +
+            "&tolerance="  + accuracy +
+            "&api_token=" + Config.API_KEY +
+            "&decimal=1";
+    };
+
+    /**
+     * Send the SVG path data to Astui.
+     * @param {CSXSEvent} event  The SVG-formatted path data.
+     */
+    Client.sendPathPointToAstui = function(csxsEvent) {
 
         var $svg,
-            payload;
+            $path,
+            thePayload,
+            endPointName;
 
-        console.log("Client.sendPathPointToAstui called");
+        Client.dump("Client.sendPathPointToAstui started", "Client.sendPathPointToAstui");
+
+        console.log("csxsEvent:type " + typeof(csxsEvent));
+        console.log(csxsEvent);
+
+        Client.dump(typeof(csxsEvent), "csxsEvent:type");
+        Client.dump(csxsEvent, "csxsEvent");
+
+        if (isString(csxsEvent)) {
+            csxsEvent = JSON.parse(csxsEvent);
+        }
+
+        endPointName = 'ssr';
+        if (csxsEvent.type == 'moveToTangents') {
+            endPointName = 'tangencies';
+        }
+
+        Client.dump(endPointName, "endPointName");
 
         try {
+            if (svgPathData = csxsEvent.data) {
 
-            // console.log( "result : " + JSON.stringify(result) );
+                Client.dump("Start svgPathData", "svgPathData");
+                Client.dump(svgPathData, "svgPathData");
 
-            if (typeof(result) != 'undefined') {
+                Client.dump("Client.sendPathPointToAstui got SVG path data", "Get Path Data");
 
-                if (svgPathData = Client.validate(result)) {
+                // $svg = removeEmptyNodes(
+                //     $.parseXML(svgPathData.svg)
+                // );
 
-                    svgData = svgData.svg;
+                // $svg = $.parseXML(svgPathData.svg);
 
-                    $svg = $.parseXML(svgData);
+                var svgDoc = new DOMParser().parseFromString(svgPathData.svg, "application/xml");
+                var clone  = svgDoc.cloneNode(true);
 
-                    $("path", $svg).each(function(i) {
-                        var $path = $(this);
-                        console.log($path.attr("d"));
+                // var clone2 = $.parseXML(
+                //     '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"></svg>'
+                // );
 
-                        payload = "path=" + $("path", $svg).attr("d") +
-                            "&accuracy=" + $("#tolerance").val() +
-                            "&api_token=" + Config.MY_API_KEY +
-                            "&decimal=1";
+                $("svg", clone).empty();
 
-                        // console.info( "ajaxData : " + payload );
+                var $clone = $(clone);
+                var $svg   = $(svgDoc);
 
-                        var $jqxhr = $.ajax({
-                            method  : "POST",
-                            url     : Config.API_ENDPOINT,
-                            data    : payload,
-                            headers : {
-                                "Content-Type"  : "application/x-www-form-urlencoded",
-                                "Cache-Control" : "no-cache",
-                                "Accept"        : "application/json, text/plain, */*"
-                            }
-                        })
-                        .done(function(result) {
-                            // console.log( " ========== Done ========== " );
-                            // console.log( result.path );
-                        })
-                        .fail(function(result) {
-                            Client.write( Config.COMMON_LOG, "[Client.processSelectionHandler] " + result.responseText, true );
+                Client.dump('Parsed XML Document', "Parse XML Document");
+
+                $("path", $svg).each(function(i) {
+
+                    Client.dump('Client.sendPathPointToAstui got path ' + i, "Iterate Paths");
+
+                    $path = $(this);
+
+                    console.log("PATH ORIGINAL : " + $path.attr("d"));
+
+                    thePayload = Client.formatSmartRemovePayload(
+                        $path.attr("d"),
+                        $("#tolerance").val()
+                    );
+
+                    if (csxsEvent.type == 'moveToTangents') {
+                        thePayload = pack(thePayload, 'angle=45', '&');
+                    }
+
+                    console.log("The PayLoad");
+                    console.log(thePayload);
+                    console.log("End The PayLoad");
+
+                    Client.dump(thePayload, "thePayload");
+
+                    Client.dump("Client.sendPathPointToAstui make ajax call", "Make Ajax Call");
+
+                    $.ajax({
+                        method  : "POST",
+                        url     : pack(Config.API_ENDPOINT, endPointName, '/'),
+                        data    : thePayload,
+                        async   : false,
+                        headers : {
+                            "Content-Type"  : "application/x-www-form-urlencoded",
+                            "Cache-Control" : "no-cache",
+                            "Accept"        : "application/json, text/plain, */*"
+                        }
+                    })
+                    .done(function(result) {
+
+                        Client.dump("Client.sendPathPointToAstui ajax call successful", "Client.sendPathPointToAstui");
+                        Client.dump(result, "Astui path result");
+
+                        $path.attr('d', result.path);
+
+                        console.log("PATH ASTUI : " + result.path);
+
+                        console.log({
+                            uuid : csxsEvent.data.uuid,
+                            file : csxsEvent.data.file,
+                            path : result.path,
                         });
+
+                        $("svg", clone).append($path.clone());
+
+                        Client.updatePathDataCallback(clone, {
+                            uuid : csxsEvent.data.uuid,
+                            file : csxsEvent.data.file,
+                            path : result.path,
+                        });
+                    })
+                    .fail(function(result) {
+                        Client.dump("Client.sendPathPointToAstui ajax call failed", "Client.sendPathPointToAstui ERROR");
+                        Client.write( Config.COMMON_LOG, "[Client.sendPathPointToAstui] " + result, true );
+                        console.error( "[Client.sendPathPointToAstui] " + result );
+                        throw new Error("[Client.sendPathPointToAstui] " + result);
                     });
-                }
-                else {
-                    console.error("AJAX call failed");
-                }
+                });
+            }
+            else {
+                Client.dump("svgPathData is not defined", "svgPathData ERROR");
+                throw new Error("svgPathData is not defined");
             }
         }
         catch(e) {
-            console.error(e);
+            Client.dump(e.message, "Client.sendPathPointToAstui Error");
+            throw new Error(e);
         }
-
     };
 
-    Client.updatePathDataCallback = function(result) {
+    /**
+     * Update the path data for the selected item.
+     * @param result
+     */
+    Client.updatePathDataCallback = function($svg, newPathData) {
 
+        Client.dump("Client.updatePathDataCallback started", "Client.updatePathDataCallback");
+
+        Client.write(
+            newPathData.file.replace(".svg", "-2.svg"),
+            xmlToString($svg),
+            true,
+            'SVG '
+        );
+
+        Client.dump( "New SVG file written", "SVG FILE" );
+
+        var fileData = {
+            uuid : newPathData.uuid,
+            file : newPathData.file.replace(".svg", "-2.svg")
+        };
+
+        csInterface.evalScript( 'Host.updatePathData(\'' + JSON.stringify(fileData) + '\')');
     };
 
     /**
      * Call Host.processSelection().
      * @param tolerance
      */
-    Client.processSelection = function() {
-        csInterface.addEventListener( 'processPathPoint', Client.sendPathPointToAstui );
-        csInterface.evalScript( 'Host.processSelection()' );
+    Client.smartRemovePoints = function() {
+        csInterface.addEventListener( 'smartRemovePoint', Client.sendPathPointToAstui );
+        Client.dump("Host.processSelection(smartRemovePoints) started", "Client.smartRemovePoints");
+        csInterface.evalScript( 'Host.processSelection("smartRemovePoint")');
+    };
+
+    /**
+     * Call Host.processSelection().
+     * @param tolerance
+     */
+    Client.moveToTangents = function() {
+        csInterface.addEventListener( 'moveToTangents', Client.sendPathPointToAstui );
+        Client.dump("Host.processSelection(moveToTangents) started", "Client.moveToTangents");
+        csInterface.evalScript( 'Host.processSelection("moveToTangents")');
     };
 
     /**
@@ -266,7 +393,7 @@ $(function() {
      * @param filePath
      */
     Client.alert = function(message) {
-        csInterface.evalScript('Host.showAlert("' + message + '")');
+        csInterface.evalScript('Host.alert("' + message + '")');
     };
 
     /**
@@ -282,20 +409,19 @@ $(function() {
      * @param result
      */
     Client.readHandler = function(result) {
-        console.log("Client.readHandler result : " + result);
-        return;
         try {
-            if (typeof(result) != 'undefined') {
-                // data = Client.validate(result).content;
+            if (isDefined(result)) {
                 console.log("Client.readHandler data : " + result);
             }
             else {
-                console.log("Client.readHandler result is undefined");
+                throw new Error("Client.readHandler result is undefined");
             }
         }
         catch (e) {
-            console.error("Client.readHandler : " + e.message );
+            console.error( "Client.readHandler : " + e.message );
+            throw new Error(e);
         }
+        return true;
     };
 
     /**
@@ -303,10 +429,16 @@ $(function() {
      * @param txt
      * @param filePath
      */
-    Client.write = function(filePath, txt, replace) {
+    Client.write = function(filePath, txt, replace, type) {
+        if (! isDefined(type)) {
+            type = 'TEXT';
+        }
         var replace = replace ? replace : false ;
+
+        txt = trimNewLines(txt);
+
         csInterface.evalScript(
-            "Host.write('" + filePath + "', '" + txt + "', '" + replace +  "')",
+            "Host.write('" + filePath + "', '" + txt + "', '" + replace +  "', '" + type + "')",
             Client.writeHandler
         );
     };
@@ -316,11 +448,8 @@ $(function() {
      * @param result
      */
     Client.writeHandler = function(result) {
-        console.log("Client.writeHandler result : " + result);
-        return;
         try {
             if (typeof(result) != 'undefined') {
-                // data = Client.validate(result).result;
                 console.log("Client.writeHandler data : " + result);
             }
             else {
@@ -330,6 +459,15 @@ $(function() {
         catch(e) {
             console.error("Client.writeHandler : " + e.message);
         }
+    };
+
+    /**
+     * Passthrough function to call Utils.dump in the Host.
+     * @param {string} message
+     */
+    Client.dump = function(message, label) {
+        if (! isDefined(label)) label = "Client.dump";
+        csInterface.evalScript('Host.dump("' + message + '", "' + label + '")');
     };
 
     /**
@@ -380,11 +518,13 @@ $(function() {
      */
     Client.initFlyoutMenu = function() {
         var Menu = new FlyoutMenu();
-        Menu.add('enterLicenseKey', 'Enter License Key', true, false, false);
+        Menu.add( MENU_ITEMS.ENTER_TOKEN,  'Enter API Token',           true, false, false );
+        Menu.add( MENU_ITEMS.GET_TOKEN,    'Get a API Token',           true, false, false );
         Menu.divider();
-        Menu.add('getLicenseKey', 'Get a License key', true, false, false);
-        Menu.add('aboutAstuteGraphics', 'About Astute Graphics', true, false, false);
-        Menu.setHandler(Client.flyoutMenuClickedHandler);
+        Menu.add( MENU_ITEMS.ABOUT_PAGE,   'About Astute Graphics',     true, false, false );
+        Menu.add( MENU_ITEMS.HOME_PAGE,    'Astute Graphics Home Page', true, false, false );
+        Menu.add( MENU_ITEMS.SHOP_PLUGINS, 'Shop for Plugins',          true, false, false );
+        Menu.setHandler( Client.flyoutMenuClickedHandler );
         Menu.build();
     };
 
@@ -393,35 +533,77 @@ $(function() {
      * @param event
      */
     Client.flyoutMenuClickedHandler = function(event) {
-
-        // the event's "data" attribute is an object, which contains "menuId" and "menuName"
-
         switch (event.data.menuId) {
-            case "getLicenseKey":
-                //@TODO: Redirect to get license key.
+            case MENU_ITEMS.GET_TOKEN :
+                Client.openUrl(
+                    'mailto:enquiries@astutegraphics.com?subject=Astui Enquiry&' +
+                    'body=Please send me information on how to obtain an ASTUI API token.'
+                );
                 break;
 
-            case "aboutAstuteGraphics":
-                //@TODO: Open Astute Graphics in default browser.
+            case MENU_ITEMS.ABOUT_PAGE :
+                Client.openUrl( 'https://astutegraphics.com/about-us/' );
+                break;
+
+            case MENU_ITEMS.HOME_PAGE :
+                Client.openUrl( 'https://astutegraphics.com/' );
+                break;
+
+            case MENU_ITEMS.SHOP_PLUGINS :
+                Client.openUrl( 'https://astutegraphics.com/bundles/' );
+                break;
+
+            case MENU_ITEMS.ENTER_TOKEN :
+                csInterface.evalScript('Host.saveApiToken()', Client.validateLicenseKey);
                 break;
 
             default:
                 break;
         }
+    };
 
-        if (event.data.menuId == 'enterLicenseKey') {
-            csInterface.evalScript('Host.userPrompt()', Client.validateLicenseKey);
+    /**
+     * Interface to Host to open a web page in the default browser.
+     * @param address
+     */
+    Client.openUrl = function(address) {
+        csInterface.evalScript('Host.openUrl("' + address + '")');
+    };
+
+    /**
+     * Validate the user input and save API_KEY to settings file.
+     * @param result
+     */
+    Client.validateLicenseKey = function(result) {
+        try {
+            Client.getSettings();
+        }
+        catch(e) {
+            console.error("[Client.validateLicenseKey] : " + e.message);
         }
     };
 
     /**
-     * Validate the user input.
-     * @param result
+     * Retrieve the stored API_KEY.
+     * @returns {Object|*}
      */
-    Client.validateLicenseKey = function(result) {
-        if (data = Client.validate(result)) {
-            Client.showMessage('You entered license key : ' + data);
+    Client.getStoredLicenseKey = function() {
+        try {
+            configJson = JSON.parse(Client.read(
+                Config.DOCUMENTS + '/' + Config.APP_NAME + '/settings.json'
+            ));
+            return configJson.API_KEY;
         }
+        catch(e) { console.error(e); }
+        return null;
+    };
+
+    /**
+     * Does the user have a stored API_KEY?
+     * @returns {boolean}
+     */
+    Client.hasValidApiKey = function() {
+        return (! isEmpty(Client.getStoredLicenseKey() ));
     };
 
     /**
@@ -470,6 +652,10 @@ $(function() {
     }
 
     // Run now
+
+    // csInterface.evalScript('Host.init()', function(result) {
+    //     console.log(result == true ? 'Host.init() finished without errors' : result );
+    // });
 
     Client.getSettings();
     Client.init();

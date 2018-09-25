@@ -35,7 +35,7 @@
  * @private
  */
 function isSupported(theType) {
-    if (! isDefined(supportedTypes)) {
+    if (typeof(supportedTypes) == 'undefined') {
         throw "You must create a global array named `supportedTypes` with the supported type names";
     }
     return supportedTypes.indexOf(theType.toLowerCase()) >= 0;
@@ -62,6 +62,16 @@ function isType(theItem, theType) {
 function isTypename(theItem, theTypename) {
     if (strcmp(theItem.typename, 'undefined')) return false;
     return strcmp(theItem.typename, theTypename);
+}
+
+/**
+ * Get the typename of an object if it is set.
+ * @param   {object}    theItem
+ * @returns {string|null}
+ */
+function getTypename(theItem) {
+    if (isDefined(theItem.typename)) return theItem.typename;
+    return "undefined";
 }
 
 /**
@@ -100,6 +110,35 @@ function isString(theItem) {
  */
 function isNumber(theItem) {
     return ! isNaN(theItem);
+}
+
+/**
+ * Determine if a value is true-ish.
+ * USE ONLY with strings, ints, and booleans.
+ * @param what
+ * @returns {boolean}
+ */
+function isTrue(what) {
+
+    if (isTrue === true)     return true;
+
+    if (isString(what)) {
+        var truish = [
+            'yes', 'oui', 'ja', 'da',
+            'si', 'yeah', 'yep', 'yup',
+            'fuck yes', 'fuck yeah', 'fuckin a',
+            'you know it', 'of course'
+        ];
+        what = what.toLowerCase();
+        if (what === "true")     return true;
+        if (truish.indexOf(what) != -1) return true;
+    }
+
+    if (! isNaN(what)) {
+        if (parseInt(what) > 0) return true;
+    }
+
+    return false;
 }
 
 /**
@@ -147,8 +186,34 @@ function isCompoundPathItem(theItem) {
  * @returns {boolean}
  * @private
  */
-function isDefined(property) {
-    return ! isType(property, 'undefined');
+function isDefined(theItem) {
+    return typeof(theItem) != 'undefined';
+}
+
+/**
+ * If theItem is defined, return it, otherwise set it to theDefault value.
+ * @param   {*}     theItem
+ * @param   {*)     theDefault
+ * @returns {boolean|*}
+ */
+function isDefinedOr(theItem, theDefault) {
+    if (typeof(theItem) != 'undefined') {
+        return theItem;
+    }
+    return theDefault;
+}
+
+/**
+ * If theItem is not empty, return it, otherwise set it to theDefault value.
+ * @param   {*}     theItem
+ * @param   {*)     theDefault
+ * @returns {boolean|*}
+ */
+function isEmptyOr(theItem, theDefault) {
+    if (! isEmpty(theItem)) {
+        return theItem;
+    }
+    return theDefault;
 }
 
 /**
@@ -158,6 +223,32 @@ function isDefined(property) {
  */
 function now() {
     return (new Date()).getTime();
+}
+
+/**
+ * Ensures a URL ends with a trailing slash.
+ * @param url
+ * @returns {*}
+ */
+function slash(url) {
+    if (url.charAt(url.length-1) != '/') {
+        url += '/';
+    }
+    return url;
+};
+
+/**
+ * Appends a string to a base string using a divider.
+ * @param   {string} base
+ * @param   {string} add
+ * @param   {string} divider
+ * @returns {string}
+ */
+function pack(base, add, divider) {
+    if (base.charAt(base.length-1) != divider) {
+        base += divider;
+    }
+    return base + add;
 }
 
 /**
@@ -179,9 +270,29 @@ function trap(func, customError) {
     try {
         return func();
     }
-    catch(e){
+    catch(e) {
         return customError || e.message ;
     }
+}
+
+/**
+ * Format date into a filename-friendly format.
+ * @param   {string}  date
+ * @returns {string} "YYYY-MM-DD"
+ */
+function dateFormat(date, separator) {
+    if (! isDefined(separator)) {
+        separator = "-";
+    }
+    var d = new Date(date),
+        month = '' + (d.getMonth() + 1),
+        day   = '' + d.getDate(),
+        year  = d.getFullYear();
+
+    if (month.length < 2) month = '0' + month;
+    if (day.length < 2) day = '0' + day;
+
+    return [year, month, day].join(separator);
 }
 
 /**
@@ -204,6 +315,44 @@ function isEmpty(data) {
         if (data.hasOwnProperty(i)) count ++;
     }
     return count == 0;
+}
+
+/**
+ * Convert XML document to string.
+ * @param   {XmlDocument} xmlData
+ * @returns {string}
+ */
+function xmlToString(xmlData) {
+    //IE
+    if (window.ActiveXObject){
+        return xmlData.xml;
+    }
+    // Everyone else.
+    return (new XMLSerializer()).serializeToString(xmlData);
+}
+
+/**
+ * Trim newline chars from a long string.
+ * @param   {string}    theText
+ * @returns {string}
+ */
+function trimNewLines(theText) {
+    return theText.replace(/\r?\n/g, "");
+}
+
+/**
+ * Remove empty group nodes from SVG.
+ * @param   {XmlDocument} $svg
+ * @returns {XmlDocument}
+ */
+function removeEmptyNodes($svg) {
+    $("g", $svg).each(function(i) {
+        var $group = $(this);
+        if ($.trim($group.text()) == "") {
+            $group.remove();
+        }
+    });
+    return $svg;
 }
 
 /**
@@ -234,6 +383,46 @@ function setPathItemFromSVG(path, svg)
         pp.leftDirection = pointArray[i].leftDirection;
         pp.rightDirection = pointArray[i].rightDirection;
         pp.pointType = PointType.CORNER;
+    }
+}
+
+/**
+ * Copies path points from one path to another.
+ * @param targetPath
+ * @param sourcePath
+ */
+function copyPathPoints(targetPath, sourcePath) {
+
+    var i,
+        pp,
+        pointArray,
+        targetPPKey,
+        sourcePPKey;
+
+    targetPPKey = targetPath.selected ? "selectedPathPoints" : "pathPoints";
+    sourcePPKey = sourcePath.selected ? "selectedPathPoints" : "pathPoints";
+
+    while (targetPath[targetPPKey].length > 1) {
+        targetPath[targetPPKey][0].remove();
+    }
+
+    pointArray = sourcePath[sourcePPKey];
+
+    targetPath[targetPPKey][0].anchor         = pointArray[0].anchor;
+    targetPath[targetPPKey][0].leftDirection  = pointArray[0].leftDirection;
+    targetPath[targetPPKey][0].rightDirection = pointArray[0].rightDirection;
+
+    for(i=1; i < pointArray.length; i++) {
+        try {
+            pp = targetPath[targetPPKey].add();
+            pp.anchor         = pointArray[i].anchor;
+            pp.leftDirection  = pointArray[i].leftDirection;
+            pp.rightDirection = pointArray[i].rightDirection;
+            pp.pointType      = PointType.CORNER;
+        }
+        catch(e) {
+            Utils.dump("[copyPathPoints()#targetPath[targetPPKey].add()] " + e.message);
+        }
     }
 }
 

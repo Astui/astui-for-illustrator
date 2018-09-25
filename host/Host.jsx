@@ -33,7 +33,39 @@
 
 $.localize = true;
 
+/**
+ * @type {{
+ *      APP_NAME: string,
+  *     USER: *,
+  *     HOME: *,
+  *     DOCUMENTS: *
+  * }}
+ */
+var Config = {
+    APP_NAME         : 'astui-for-illustrator',
+    USER             : $.getenv('USER'),
+    HOME             : $.getenv('HOME'),
+    DOCUMENTS        : Folder.myDocuments +  '',
+    LOGFOLDER        : Folder.myDocuments + '/astui-for-illustrator/logs',
+    API_KEY          : 'YOUR_API_KEY',
+    API_ENDPOINT     : 'ASTUI_API_ENDPIONT',
+    COMMON_LOG       : Folder.myDocuments + '/astui-for-illustrator/logs/common.log',
+    DEBUG            : true
+};
+
 #include "Logger.jsx";
+
+/**
+ * The global logger.
+ * The logger class needs to be created before any other classes that use the logger.
+ */
+var logger = new Logger(Config.APP_NAME, Config.LOGFOLDER);
+
+logger.clear();
+logger.info(logger.dateFormat());
+
+// Include other classes and methods.
+
 #include "JSON.jsx";
 #include "Helpers.jsx";
 #include "Utils.jsx";
@@ -43,27 +75,10 @@ $.localize = true;
 #include "Exporter.jsx";
 
 /**
- * @type {{
- *      APP_NAME: string,
-  *     USER: *,
-  *     HOME: *,
-  *     DOCUMENTS: *
-  * }}
- */
-var Config = new Configuration({
-    APP_NAME         : 'astui-for-illustrator',
-    USER             : $.getenv('USER'),
-    HOME             : $.getenv('HOME'),
-    DOCUMENTS        : Folder.myDocuments,
-    LOGFOLDER        : '~/Downloads/astui-for-illustrator'
-});
-
-/**
  * Supported Ai Object types for this script.
  * @type {string[]}
- * @private
  */
-var _supportedTypes = [
+var supportedTypes = [
     "groupitem",
     "pageitem",
     "compoundpathitem",
@@ -71,28 +86,101 @@ var _supportedTypes = [
 ];
 
 /**
+ * Used for temporary storage of objects.
+ * @type {{
+ *      ExternalObjectIsLoadedLib: boolean,
+ *      SETTINGS_FILE_PATH: string
+ * }}
+ * @private
+ */
+var _GLOBALS = {
+
+    /**
+     * Whether or not the ExternalObjectLib is loaded
+     * @type {boolean}
+     */
+    ExternalObjectLib : false,
+
+    /**
+     * The settings file path.
+     * @type {string}
+     */
+    SETTINGS_FILE_PATH : Folder.myDocuments + "/astui-for-illustrator/settings.json",
+
+    /**
+     * The selected items.
+     * @type {array}
+     */
+    selected : [],
+
+    /**
+     * The selected pathItems.
+     * @type {array}
+     */
+    pathItems : []
+};
+
+/**
+ * The global document object.
+ */
+var doc = app.activeDocument;
+
+Utils.DEBUG = true;
+Utils.dump({name: 'CONFIG',   value: Utils.inspect(Config, '') });
+Utils.dump({name: '_GLOBALS', value: Utils.inspect(_GLOBALS, '') });
+
+var counter = 0;
+
+/**
  * Run the script using the Module patter.
  */
-var Host = (function(Config) {
+var Host = (function(Config, logger) {
+
+    _getSettings();
 
     /**
      * The local scope logger object.
      * @type {Logger}
      */
-    var _logger   = new Logger(Config.get('APP_NAME'), Config.get('LOGFOLDER'), LogLevel.INFO);
-    var _exporter = new Exporter();
+    var _logger = logger;
 
     /**
-     *
+     * The exporter class.
+     * @type {Exporter}
+     * @private
+     */
+    var _exporter = new Exporter(
+        pack(Config.DOCUMENTS, Config.APP_NAME, '/')
+    );
+
+    /**
+     * Prompt user for API_KEY.
      * @returns {string}
      */
-    function _userPrompt() {
-        var userInput = prompt('Please enter your Astute Graphics API key', '');
-        while (userInput.replace(/^\s+|\s+$/gm,'') == '' && count < 3) {
-            count++;
-            userInput = prompt('Please enter your Astute Graphics API key', '');
+    function _saveApiToken() {
+
+        var userInput, wasSaved;
+
+        try {
+            userInput = prompt('Please enter your Astute Graphics API Token', Config.API_KEY);
+
+            if (typeof(userInput) != 'undefined' && Utils.trim(userInput) != '') {
+                Config.API_KEY = Utils.trim(userInput);
+                wasSaved = Utils.write(
+                    _GLOBALS.SETTINGS_FILE_PATH,
+                    JSON.stringify(Config),
+                    true, 'JSON'
+                );
+                if (! wasSaved) {
+                    throw "Save API Token failed : " + e.message;
+                }
+            }
         }
-        return JSON.stringify({value: userInput});
+        catch(e) {
+            throw "Save API Token failed : " + e.message;
+        }
+
+        return JSON.stringify({value: userInput || '' });
     };
 
     /**
@@ -104,10 +192,10 @@ var Host = (function(Config) {
 
         var errorMessage;
 
-        if (typeof(app) == 'undefined') {
+        if (! isDefined(app)) {
             errorMessage = 'App is not defined';
         }
-        else if (typeof(app.documents) == 'undefined') {
+        else if (! isDefined(app.documents)) {
             errorMessage = 'App.documents is not defined';
         }
         else if (app.documents.length == 0) {
@@ -116,83 +204,126 @@ var Host = (function(Config) {
 
         var doc = app.activeDocument;
 
-        if (typeof(doc.selection) == 'undefined') {
+        if (! isDefined(doc.selection)) {
             errorMessage = 'doc.selection is not defined';
         }
         else if (doc.selection.length == 0) {
             errorMessage = 'Nothing selected';
         }
 
-        if (typeof(errorMessage) == 'string') {
+        if (isString(errorMessage)) {
             alert(errorMessage);
-            throw errorMessage;
+            throw new Error(errorMessage);
         }
 
         return doc.selection;
     };
 
-    /*
-        1. verify the selection
-        2. export the selection to SVG
-        3. Read SVG
-        4. Return SVG to Client
-        5. Send SVG to ASTUI
-        6. Retrieve response from ASTUI
-        7. Send updated SVG to Host.
-        8. Write updated SVG to temp file
-        9. Update selection with modified SVG.
-        10. Update UI with result message.
+    /**
+     * Load external object library.
+     * @returns {boolean}
+     * @private
      */
+    function _loadExternalObject() {
+        if (isTrue(_GLOBALS.ExternalObjectLib)) {
+            Utils.logger("[lib:PlugPlugExternalObject] already loaded");
+            return true;
+        }
+        try {
+            if (new ExternalObject("lib:\PlugPlugExternalObject")) {
+                Utils.logger("[lib:PlugPlugExternalObject] loaded");
+                ExternalObjectIsLoadedLib = true;
+                return ExternalObjectIsLoadedLib;
+            }
+        }
+        catch (e) {
+            throw new Error(e);
+        }
+    }
 
     /**
      * Private method for processing the selected SVG path.
-     * @param accuracy
+     * @param   {string}    callbackEventType
      * @returns {*}
      * @private
      */
-    function _processSelection() {
+    function _processSelection(callbackEventType) {
 
-        var ns,
-            SVG,
-            uuid,
-            nodes,
-            svgFile,
-            svgData,
-            filepath,
-            errorMessage;
-
-        uuid = Utils.uuid(8);
-
-        filepath = Config.LOGFOLDER + "/" + Config.APP_NAME + "-" + uuid + ".svg";
+        var uuid,
+            thisItem,
+            pathItems,
+            errorMessage,
+            theCustomEvent;
 
         try {
-            if (selection = _verifySelection()) {
-                if (svgFile = _exporter.selectionToSVG(selection, filepath)) {
-                    if (isObject(svgFile)) {
-                        svgData = Utils.read(svgFile);
+            if (_verifySelection()) {
 
-                        try {
-                            var xLib = new ExternalObject("lib:\PlugPlugExternalObject");
-                        }
-                        catch (e) {
-                            Utils.logger(e.message);
+                pathItems = _getSelectedPathItems();
+
+                Utils.logger("Number of PathItems : " + pathItems.length);
+
+                for (var i = 0; i < pathItems.length; i++) {
+
+                    thisItem = pathItems[i];
+
+                    // If there is no typename, ignore it.
+                    if (! isDefined(thisItem.typename)) continue;
+
+                    // Ignore member functions.
+                    if (isFunction( thisItem ) ) continue;
+
+                    Utils.logger("\n\n");
+                    Utils.logger("+ -------------------------------------------------- +");
+                    Utils.logger("|    START : thisItem                                |");
+                    Utils.logger("+ -------------------------------------------------- +");
+                    Utils.dump(thisItem);
+                    Utils.logger("+ -------------------------------------------------- +");
+                    Utils.logger("|    END : pathData                                  |");
+                    Utils.logger("+ -------------------------------------------------- +");
+                    Utils.logger("\n\n");
+
+                    // Ignore unsupported typenames.
+                    if (! isSupported(getTypename(thisItem))) {
+                        Utils.logger("Unsupported type - `" + getTypename(thisItem) + "`");
+                        continue;
+                    }
+
+                    if (isPathItem(thisItem)) {
+
+                        if (! _loadExternalObject() ) {
+                            return 'ExternalObjectLib was not loaded';
                         }
 
-                        if ( xLib ) {
-                            Utils.logger( "xLib loaded, creating custom event" );
-                            var eventObj = new CSXSEvent();
-                            eventObj.type = "clientCall";
-                            eventObj.data = "some payload data...";
-                            eventObj.dispatch();
-                        }
+                        uuid = thisItem.note;
 
+                        Utils.logger( 'thisItem.note (UUID) = ' + uuid );
+
+                        selection = _selectByUUID(uuid);
+
+                        Utils.logger("\n\n");
+                        Utils.logger("+ -------------------------------------------------- +");
+                        Utils.logger("|    START : _selectByUUID                           |");
+                        Utils.logger("+ -------------------------------------------------- +");
+                        Utils.dump(selection);
+                        Utils.logger("+ -------------------------------------------------- +");
+                        Utils.logger("|    END : _selectByUUID                             |");
+                        Utils.logger("+ -------------------------------------------------- +");
+                        Utils.logger("\n\n");
+
+                        theCustomEvent = _getNewCSEvent(
+                            callbackEventType,
+                            JSON.stringify({
+                                uuid: uuid,
+                                svg: _processPathItem(selection, uuid),
+                                file: Config.LOGFOLDER + '/' + uuid + '.svg'
+                            })
+                        );
+                        Utils.logger('theCustomEvent: ' + JSON.stringify(theCustomEvent));
+                        theCustomEvent.dispatch();
                     }
                     else {
-                        "Could not read SVG file";
+                        continue;
                     }
-                }
-                else {
-                    errrorMessage = "Could save selection to SVG";
                 }
             }
             else {
@@ -201,10 +332,303 @@ var Host = (function(Config) {
         }
         catch(e) {
             errorMessage = e.message;
-            _logger.error(errorMessage);
+            Utils.logger("Error : " + errorMessage);
+        }
+        return errorMessage || "Host.processSelection completed";
+    };
+
+    /**
+     * Select a PageItem by UUID stored in note field.
+     * @param uuid
+     * @private
+     */
+    function _selectByUUID(uuid) {
+        var doc = app.activeDocument;
+        for (var i = 0; i < doc.pathItems.length; i++) {
+            thisItem = doc.pathItems[i];
+            if (strcmp(thisItem.note, uuid)) {
+                _deselectAll();
+                thisItem.selected = true;
+                return doc.selection;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Store all of the selected pathItems in the _GLOBALS array.
+     * @returns {array}
+     * @private
+     */
+    function _getSelectedPathItems() {
+
+        var uuid,
+            pathItems = doc.pathItems;
+
+        _GLOBALS.selected  = [];
+        _GLOBALS.pathItems = [];
+
+        for (var i=0; i<pathItems.length; i++) {
+            uuid = pathItems[i].note;
+            pathItems[i].note = Utils.uuid();
+            if (pathItems[i].selected) {
+                _GLOBALS.selected.push(pathItems[i]);
+                _GLOBALS.pathItems[uuid] = pathItems[i];
+            }
+        }
+        return _GLOBALS.selected;
+    }
+
+    /**
+     * Deselect all page items.
+     * @private
+     */
+    function _deselectAll() {
+        for (var i = 0; i<app.activeDocument.pageItems.length; i++) {
+            app.activeDocument.pageItems[i].selected = false;
+        }
+    }
+
+    /**
+     * Process a selected PathItem.
+     * @param thePathItem
+     * @param uuid
+     * @returns {string}
+     * @private
+     */
+    function _processPathItem(selection, uuid) {
+        var svgData;
+
+        try {
+            svgFile = _exporter.selectionToSVG(selection, pack(Config.LOGFOLDER, uuid + ".svg", '/'));
+
+            if (! isObject(svgFile)) {
+                throw new Error("Could not export selection to SVG");
+            }
+            svgData = Utils.read(svgFile);
+
+            if (! svgData) {
+                throw new Error("Could not read exported SVG file");
+            }
+        }
+        catch(e) {
+            Utils.logger(e.message);
+            throw new Error(e);
+        }
+        return svgData;
+    }
+
+    /**
+     * Calls Astui to move points to tangents.
+     * @private
+     */
+    function _moveToTangents() {
+        var errorMessage = "Host.moveToTangents() is not yet implemented";
+        Utils.logger(errorMessage);
+        throw new Error(errorMessage);
+    }
+
+    /**
+     * Create a new CSXSEvent.
+     * @param   {string}    eventType
+     * @param   {*}         data
+     * @returns {CSXSEvent}
+     * @private
+     */
+    function _getNewCSEvent(type, data) {
+        Utils.logger("Create new CSXSEvent(" + type + ", " + data + ")");
+        var event  = new CSXSEvent();
+        event.type = type;
+        event.data = data;
+        return event;
+    }
+
+    /**
+     * Get the first selected PathItem.
+     * @returns {*}
+     * @private
+     */
+    function _getFirstSelectedPathItem() {
+        var pathItems = doc.pathItems;
+
+        for (var i=0; i<pathItems.length; i++) {
+            if (pathItems[i].selected) {
+                return pathItems[i];
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Update the PathItem with modified points data from Astui.
+     * @param pathData
+     */
+    function _updatePathData(pathData) {
+
+        counter = counter + 1;
+
+        Utils.logger("\n\n");
+        Utils.logger("+ -------------------------------------------------- +");
+        Utils.logger("|    START : Host._updatePathData(pathData) " + counter);
+        Utils.logger("+ -------------------------------------------------- +");
+        Utils.logger("|    START : pathData                                |");
+        Utils.logger("+ -------------------------------------------------- +");
+        Utils.dump(pathData);
+        Utils.logger("+ -------------------------------------------------- +");
+        Utils.logger("|    END : pathData                                  |");
+        Utils.logger("+ -------------------------------------------------- +");
+
+        var f,
+            doc,
+            thePlacedPathItem,
+            pathDataObject,
+            thePlacedGroupItem;
+
+        doc = app.activeDocument;
+
+        try {
+
+            Utils.logger("_updatePathData(pathData)[pathData] " + pathData);
+
+            pathDataObject = JSON.parse(pathData);
+
+            // Make sure we were able to parse the JSON response.
+            if ( ! isObject(pathDataObject)) {
+                throw new Error("Could not parse pathData");
+            }
+
+            var theItem = _getPathItemByUUID(pathDataObject.uuid);
+
+            Utils.logger("\n\n");
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    START : thisItem " + counter);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.dump(theItem);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    END : thisItem  " + counter);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("\n\n");
+
+            if (! isDefined(theItem)) {
+                throw new Error("theItem is not defined");
+            }
+            else if ( ! isDefined(pathDataObject.file)) {
+                throw new Error("pathDataObject.file is not defined");
+            }
+
+            f = new File(pathDataObject.file);
+
+            if ( ! f.exists) {
+                throw new Error(f.path + " does not exist");
+            }
+
+            thePlacedGroupItem = doc.groupItems.createFromFile(f);
+
+            if ( ! isDefined(thePlacedGroupItem)) {
+                throw new Error("Could not import the updated SVG object");
+            }
+
+            Utils.logger("\n\n");
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    START : thePlacedGroupItem " + counter);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.dump(thePlacedGroupItem);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    END : thePlacedGroupItem " + counter);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("\n\n");
+
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    START : thePlacedGroupItem.pathItems.length ");
+            Utils.logger("+ -------------------------------------------------- +");
+            try {
+                Utils.dump("thePlacedGroupItem.pathItems.length : " + thePlacedGroupItem.pathItems.length);
+                Utils.dump("thePlacedGroupItem.compoundPathItems.length : " + thePlacedGroupItem.compoundPathItems.length);
+                Utils.dump("thePlacedGroupItem.compoundPathItems[0].pathItems.length : " + thePlacedGroupItem.compoundPathItems[0].pathItems.length);
+            }
+            catch(e) {
+                Utils.dump("thePlacedGroupItem.pathItems.length : " + e.message);
+            }
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    END : thePlacedGroupItem.pathItems.length ");
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("\n\n");
+
+            if (! isDefined(thePlacedGroupItem.pathItems)
+                || isDefined(thePlacedGroupItem.pathItems[0])) {
+
+                throw new Error("thePlacedGroupItem.pathItems is not defined");
+            }
+            
+            thePlacedPathItem = thePlacedGroupItem.pathItems[0];
+
+            // if (isDefined(thePlacedGroupItem.pathItems)) {
+            //     thePlacedPathItem = thePlacedGroupItem.pathItems[0];
+            // }
+            // else {
+            //     thePlacedPathItem = _getFirstSelectedPathItem();
+            // }
+
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    START : thePlacedPathItem " + counter);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.dump(thePlacedPathItem);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    END : thePlacedPathItem " + counter);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("\n\n");
+
+            try {
+                thePlacedPathItem.position = theItem.position;
+            }
+            catch(e) {
+                Utils.logger("Could not set PathItem position - " + e.message);
+            }
+
+            Utils.logger("\n\n");
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    START : copyPathPoints " + counter);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("Set PathItem PathPoints");
+            copyPathPoints(theItem, thePlacedPathItem);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    END : copyPathPoints " + counter);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("\n\n");
+
+            Utils.logger("[Cleanup]  - Remove placed item " + counter);
+            thePlacedPathItem.remove();
+
+            Utils.logger("[Cleanup] - Remove item note " + counter);
+            theItem.note = '';
+        }
+        catch(e) {
+            Utils.logger("_updatePathData(pathData) Error : " + e.message);
+            throw new Error(e);
         }
 
-        return JSON.stringify({svg: svgData, error: errorMessage, filepath: filepath});
+        return "Host.updatePathData completed without errors";
+    };
+
+    /**
+     * Select a PathItem by the UUID string in the name.
+     * @param uuid
+     * @returns {*}
+     * @private
+     */
+    function _getPathItemByUUID(uuid) {
+
+        var pathItems = app.activeDocument.pathItems;
+
+        for (var i = 0; i < pathItems.length; i++) {
+
+            if (! isPathItem(pathItems[i])) continue;
+            if (uuid != pathItems[i].note)  continue;
+
+            Utils.logger("Host._getPathItemByUUID() : " + pathItems[i].note);
+            return pathItems[i];
+        }
+        return false;
     };
 
     /**
@@ -213,11 +637,17 @@ var Host = (function(Config) {
      * @private
      */
     function _getSettings() {
-        var Settings = JSON.stringify(Utils.read_json(
-            Config.DOCUMENTS + "/" + Config.APP_NAME + "/settings.json"
-        )) ;
-        Config.update(Settings);
-        return Settings;
+        var Settings = Utils.read_json(
+            _GLOBALS.SETTINGS_FILE_PATH
+        );
+        Config.API_ENDPOINT = Settings.API_ENDPOINT;
+        Config.API_KEY      = Settings.API_KEY;
+        Config.COMMON_LOG   = Settings.COMMON_LOG;
+        Config.DEBUG        = Settings.DEBUG;
+        Utils.DEBUG         = Settings.DEBUG;
+        Settings.DOCUMENTS  = Config.DOCUMENTS;
+        Settings.APP_NAME   = Config.APP_NAME;
+        return JSON.stringify(Settings);
     };
 
     /**
@@ -227,6 +657,41 @@ var Host = (function(Config) {
      */
     function _doMenuCommand(kCommandStr) {
         return new MenuCommand(kCommandStr, true);
+    };
+
+    /**
+     * Creates a web shortcut then opens it in the default browser.
+     * @param address
+     * @private
+     */
+    function _openURL( address ) {
+        try {
+            Utils.write_exec(
+                Folder.temp + '/' + now() + '-shortcut.url',
+                '[InternetShortcut]' + '\r' + 'URL=' + encodeURI(address) + '\r'
+            );
+        }
+        catch(e) {
+            prompt("Visit " + address + " for more information.", address);
+        }
+    };
+
+    /**
+     * Private init method.
+     * @private
+     */
+    function _init() {
+        var errorMessage;
+        try {
+            Utils.rmdir(Config.LOGFOLDER, "*.svg");
+            Utils.rmdir(Config.LOGFOLDER, "*.log");
+        }
+        catch(e) {
+            errorMessage = "Could not clear the log folder - " + e.message;
+            Utils.logger(errorMessage);
+            throw new Error(errorMessage);
+        }
+        return "Host._init() completed without errors";
     };
 
     /**
@@ -267,17 +732,25 @@ var Host = (function(Config) {
          * @param replace
          * @returns {*}
          */
-        write: function(filePath, txt, replace) {
+        write: function(filePath, txt, replace, type) {
             if (! isDefined(replace)) replace = true;
 
             var result = { result: "" };
             try {
-                result.result = Utils.write(filePath, txt, replace);
+                result.result = Utils.write(filePath, txt, replace, type || "TEXT");
             }
             catch(e) {
                 result.result = e.message;
             }
             return JSON.stringify(result);
+        },
+
+        /**
+         * Open a web url in the default browser.
+         * @param url
+         */
+        openUrl: function(url) {
+            _openURL(url);
         },
 
         /**
@@ -291,25 +764,45 @@ var Host = (function(Config) {
 
         /**
          * Call private _callToApi method.
+         * @param   {string}    callbackEventType The name of the custom CSXS event to trigger.
          * @returns {*}
          */
-        processSelection: function() {
-            return _processSelection();
+        processSelection: function(callbackEventType) {
+            return _processSelection(callbackEventType);
+        },
+
+        /**
+         * Call private _callToApi method.
+         * @param   {string}    callbackEventType The name of the custom CSXS event to trigger.
+         * @returns {*}
+         */
+        moveToTangents: function(callbackEventType) {
+            return _moveToTangents(callbackEventType);
+        },
+
+        /**
+         * Call private method to update path data for selected path.
+         * @param thePathData
+         * @returns {string}
+         */
+        updatePathData : function(thePathData) {
+            return _updatePathData(thePathData);
         },
 
         /**
          * Prompt user for input.
+         * @param   {string}    defaultAnswer
          * @returns {string}
          */
-        userPrompt: function() {
-            return _userPrompt();
+        saveApiToken: function(defaultAnswer) {
+            return _saveApiToken(defaultAnswer || '');
         },
 
         /**
          * Show an alert.
          * @param message
          */
-        showAlert: function(message) {
+        alert: function(message) {
             alert(message);
         },
 
@@ -319,8 +812,42 @@ var Host = (function(Config) {
          */
         getSettings: function() {
             return _getSettings();
+        },
+
+        /**
+         * Show a dump of an object.
+         * @param   {*} what
+         * @param   {string} label
+         * @returns {boolean}
+         */
+        dump: function(what, label) {
+
+            Utils.logger("\n\n");
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    START : " + label );
+            Utils.logger("+ -------------------------------------------------- +");
+
+            try {
+                Utils.dump(what);
+            }
+            catch(e) {
+                Utils.dump(e.message);
+            }
+
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    END : " + label );
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("\n\n");
+
+            return true;
+        },
+
+        /**
+         * Public interface to _init method.
+         */
+        init: function() {
+            return _init();
         }
     }
 
-    // The closure takes the Configuration object as its argument.
-})(Config);
+})(Config, logger);

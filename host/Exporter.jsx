@@ -26,7 +26,22 @@
  *   ANY KIND INCLUDING LOSS OF DATA OR DAMAGE TO HARDWARE OR SOFTWARE. IF YOU DO
  *   NOT AGREE TO THESE TERMS, DO NOT USE THIS SCRIPT.
  */
-var Exporter = function(){};
+var Exporter = function(location) {
+    this.location = location;
+    this.logger = logger || new Logger($.fileName, this.location);
+};
+
+/**
+ * Enable/disable debug logging.
+ * @type {boolean}
+ */
+Exporter.prototype.DEBUG = true;
+
+/**
+ * The location to export to.
+ * @type {null}
+ */
+Exporter.prototype.location = null;
 
 /**
  * Not implemented error string.
@@ -39,7 +54,7 @@ Exporter.prototype._notImplemented = "Not yet implemented";
  * Attach a logger class.
  * @type {Logger}
  */
-Exporter.prototype.logger = new Logger( "exporter", "~/Downloads/astui-for-illustrator/", LogLevel.INFO);
+Exporter.prototype.logger = null;
 
 /**
  * Get the preset colorMode.
@@ -102,11 +117,13 @@ Exporter.prototype.createDocument = function(width, height, colorMode) {
         doc.isNew = true;
     }
     catch(e) {
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - e.message : " + e.message);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - width : "     + width);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - height : "    + height);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - colorMode : " + colorMode);
-        throw "[" + $.fileName + "][" + $.line + "] - " + $.error;
+        if (this.DEBUG) {
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - e.message : " + e.message);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - width : "     + width);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - height : "    + height);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - colorMode : " + colorMode);
+        }
+        throw "Exporter.createDocument() failed - " + e.message;
     }
 
     return doc;
@@ -127,10 +144,12 @@ Exporter.prototype.copyObjectsToDoc = function(objects, destinationDocument) {
         }
     }
     catch(e) {
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - e.message : " + e.message);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - objects : " + objects);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - destinationDocument : " + destinationDocument);
-        throw "[" + $.fileName + "][" + $.line + "] - " + $.error;
+        if (this.DEBUG) {
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - e.message : " + e.message);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - objects : " + objects);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - destinationDocument : " + destinationDocument);
+        }
+        throw "Exporter.copyObjectsToDoc() failed - " + e.message;
     }
     return true;
 };
@@ -158,6 +177,106 @@ Exporter.prototype.svgExportOptions = function() {
     options.fontType          = SVGFontType.OUTLINEFONT;
     return options;
 };
+
+/**
+ * Export the file.
+ * @param filePath
+ * @param exportType
+ * @param exportOptions
+ * @returns {File}
+ */
+Exporter.prototype.exportFile = function(selection, filepath, exportType, exportOptions) {
+
+    var doc,
+        targetFile,
+        ignoreHidden = true;
+
+    if (selection.length == 0) {
+        throw "[" + $.fileName + "][" + $.line + "] - Nothing is selected.";
+    }
+
+    try {
+        targetFile = new File(filepath);
+    }
+    catch(e) {
+        throw "[" + $.fileName + "][" + $.line + "] - Target file not created - " + e.message ;
+    }
+
+    doc = this.createDocument(1024, 1024, DocumentColorSpace.RGB);
+
+    if ( this.copyObjectsToDoc(selection, doc) ) {
+        doc.artboards[0].artboardRect = doc.visibleBounds;
+        app.redraw();
+
+        this.selectAll(doc);
+
+        // Resize the artboard to the object
+        doc.fitArtboardToSelectedArt(0);
+        doc.exportFile(targetFile, exportType, exportOptions);
+
+        // Remove everything
+        doc.activeLayer.pageItems.removeAll();
+        doc.close(SaveOptions.DONOTSAVECHANGES);
+    }
+    else {
+        if (this.DEBUG) {
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - SVG export failed - " + e.message);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - svgExportOptions : "  + svgExportOptions);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - filepath : "          + filepath);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - selection : "         + selection);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - targetFile : "        + targetFile);
+        }
+        throw "Exporter.exportFile() failed - " + e.message;
+    }
+
+    return targetFile;
+};
+
+
+/**
+ * Export a selection to SVG.
+ * @param {selection} selection The app.activeDocument.selection object.
+ * @param {string}    filePath  The file path to save the document to.
+ *
+ * Export selection to SVG - export_selection_as_SVG
+ * (Adapted from Layers to SVG 0.1 - layers_export.jsx, by Anton Ball)
+ * @author  Rhys van der Waerden
+ * @url     https://gist.github.com/SebCorbin/4af974231068ed4ab457
+ */
+Exporter.prototype.selectionToSVG = function(selection, filepath) {
+
+    /**
+     * Local variables.
+     * @type {boolean}
+     * @type {ExportOptionsSVG}
+     */
+    var targetFile,
+        svgExportOptions,
+        ignoreHidden = true;
+
+    try {
+        svgExportOptions = this.svgExportOptions();
+        targetFile = this.exportFile(
+            selection,
+            filepath,
+            ExportType.SVG,
+            svgExportOptions
+        );
+    }
+    catch(e) {
+        if (this.DEBUG) {
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - SVG export failed - " + e.message );
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - svgExportOptions : "  + svgExportOptions );
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - filepath : "          + filepath );
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - selection : "         + selection);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - targetFile : "        + targetFile);
+        }
+        throw "Exporter.selectionToSVG() failed  - " + e.message ;
+    }
+
+    return targetFile;
+};
+
 
 /**
  * Export selection to PNG.
@@ -205,99 +324,4 @@ Exporter.prototype.artboardToSVG = function(artboard, filePath) {
  */
 Exporter.prototype.selectionToPDF = function(selection, filePath) {
     throw this._notImplemented;
-};
-
-/**
- * Export a selection to SVG.
- * @param {selection} selection The app.activeDocument.selection object.
- * @param {string}    filePath  The file path to save the document to.
- *
- * Export selection to SVG - export_selection_as_SVG
- * (Adapted from Layers to SVG 0.1 - layers_export.jsx, by Anton Ball)
- * @author  Rhys van der Waerden
- * @url     https://gist.github.com/SebCorbin/4af974231068ed4ab457
- */
-Exporter.prototype.selectionToSVG = function(selection, filepath) {
-
-    /**
-     * Local variables.
-     * @type {boolean}
-     * @type {ExportOptionsSVG}
-     */
-    var targetFile,
-        svgExportOptions,
-        ignoreHidden = true;
-
-    try {
-        svgExportOptions = this.svgExportOptions();
-        targetFile = this.exportFile(
-            selection,
-            filepath,
-            ExportType.SVG,
-            svgExportOptions
-        );
-    }
-    catch(e) {
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - SVG export failed - " + e.message );
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - svgExportOptions : "  + svgExportOptions );
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - filepath : "          + filepath );
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - selection : "         + selection);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - targetFile : "        + targetFile);
-
-        throw "[" + $.fileName + "][" + $.line + "] - SVG export failed - " + e.message ;
-    }
-
-    return targetFile;
-};
-
-/**
- * Export the file.
- * @param filePath
- * @param exportType
- * @param exportOptions
- * @returns {File}
- */
-Exporter.prototype.exportFile = function(selection, filepath, exportType, exportOptions) {
-
-    var doc,
-        targetFile,
-        ignoreHidden = true;
-
-    if (selection.length == 0) {
-        throw "[" + $.fileName + "][" + $.line + "] - Nothing is selected.";
-    }
-
-    try {
-        targetFile = new File(filepath);
-    }
-    catch(e) {
-        throw "[" + $.fileName + "][" + $.line + "] - Target file not created - " + e.message ;
-    }
-
-    doc = this.createDocument(1024, 1024, DocumentColorSpace.RGB);
-
-    if ( this.copyObjectsToDoc(selection, doc) ) {
-        doc.artboards[0].artboardRect = doc.visibleBounds;
-        app.redraw();
-
-        this.selectAll(doc);
-
-        // Resize the artboard to the object
-        doc.fitArtboardToSelectedArt(0);
-        doc.exportFile(targetFile, exportType, exportOptions);
-
-        // Remove everything
-        doc.activeLayer.pageItems.removeAll();
-        doc.close(SaveOptions.DONOTSAVECHANGES);
-    }
-    else {
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - SVG export failed - " + e.message);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - svgExportOptions : "  + svgExportOptions);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - filepath : "          + filepath);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - selection : "         + selection);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - targetFile : "        + targetFile);
-        throw "[" + $.fileName + "][" + $.line + "] - Target file was not created . " + e.message;
-    }
-
-    return targetFile;
 };

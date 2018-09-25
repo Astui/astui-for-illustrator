@@ -78,6 +78,11 @@ section.buttons {
     padding-top: 8px;
 }
 
+section.buttons button {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
 .hidden {
     display: none;
 }

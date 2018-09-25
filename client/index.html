@@ -58,7 +58,8 @@
             <p><small>Hint: a minimum tolerance of 1 maintains the path shape but removes very few points. The maximum tolerance of 100 removes many more points but can distort the shape. Try starting with a tolerance of 30 for good results.</small></p>
         </section>
         <section class="buttons">
-            <button id="button" class="topcoat-button--large--cta">Optimize Selection</button>
+            <button id="button-srp" class="topcoat-button--large--cta">Smart Remove Points</button>
+            <button id="button-mtt" class="topcoat-button--large--cta">Move Points to Tangents</button>
         </section>
         <!--scripts-->
         <script>if (typeof module === 'object')  { window.module = module; module = undefined; }</script>
@@ -66,7 +67,7 @@
         <script src="lib/CSInterface.js"></script>
         <script src="lib/jquery.3.3.1.min.js"></script>
         <script src="lib/FlyoutMenu.js"></script>
-        <script src="../host/Helpers.js"></script>
+        <script src="../host/Helpers.jsx"></script>
         <script src="Client.js"></script>
         <script>if (window.module) module = window.module;</script>
         <script>if (window.exports) exports = window.exports;</script>

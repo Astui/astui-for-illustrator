@@ -65,7 +65,7 @@ var Configuration = function(Options) {
             if (this.get(key, false)) {
                 continue;
             }
-            this[key] = source[key];
+            this.values[key] = source[key];
         }
     };
 
@@ -76,18 +76,16 @@ var Configuration = function(Options) {
      * @param {Boolean} overwrite   Whether or not new values should replace old values.
      */
     this.update = function(source, overwrite) {
-        if (typeof(overwrite) == undefined) {
+        if (typeof(overwrite) == 'undefined') {
             overwrite = true;
         }
         for (var key in source) {
-            if (typeof(this.values[key]) != 'unedfined') {
-                if (! overwrite && this.get(key, false)) {
-                    continue;
-                }
-                this.values[key] = source[key];
+            if (! overwrite && this.get(key, false)) {
+                continue;
             }
+            this.values[key] = source[key];
         }
     };
 
-    this.extend(Options);
+    this.upadte(Options, true);
 };

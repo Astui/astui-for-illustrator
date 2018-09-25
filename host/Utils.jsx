@@ -24,15 +24,29 @@
  */
 
 /**
- * @type {Logger}
- */
-var logger = new Logger($.fileName, "~/Downloads/", LogLevel.INFO);
-
-/**
  * Our base object.
  * @type {{}}
  */
 var Utils = new Object();
+
+/**
+ * Enable/disabled debug logging.
+ * @type {boolean}
+ */
+Utils.DEBUG = true;
+
+/**
+ * The log folder location.
+ * @type {string}
+ */
+Utils.LOGFOLDER = Folder.myDocuments + '/astui-for-illustrator/logs';
+
+/**
+ * Add the logger.
+ * @type {Logger}
+ * @private
+ */
+Utils._logger = logger || new Logger($.fileName, Utils.LOGFOLDER);
 
 /**
  * Turn off displaying alerts.
@@ -189,24 +203,9 @@ Utils.trim = function(str) {
  * @return void
  * @deprecated
  */
-Utils.logger = function(message, line, filename) {
-
-    var CONFIG = {
-        LOG_FOLDER    : "~/Downloads/",
-        LOG_FILE_PATH : "~/Downloads/astui-for-illustrator/utils-" + Utils.dateFormat(new Date().getTime()) + ".log"
-    }
-
-    if ($.error != 'Error') {
-        message = message + "\n" + $.error + "\n\nSTACK TRACE: \n\n" + $.stack;
-    }
-
-    try {
-        Utils.folder(CONFIG.LOG_FOLDER);
-        Utils.write_file(CONFIG.LOG_FILE_PATH, "[" + new Date().toUTCString() + "] " + message);
-    }
-    catch(ex) {
-        alert([line, filename, message].join(' - '));
-    }
+Utils.logger = function(message) {
+    // if (! Utils.DEBUG) return;
+    Utils._logger.info(message);
 };
 
 /**
@@ -228,14 +227,17 @@ Utils.write_file = function(path, txt, replace) {
  * @param {bool}    replace     Replace the file
  * @return void
  */
-Utils.write = function(path, txt, replace) {
+Utils.write = function(path, txt, replace, type) {
+    if (typeof(type) == "undefined") {
+        type = "TEXT";
+    }
     try {
         var file = new File(path);
         if (replace && file.exists) {
             file.remove();
             file = new File(path);
         }
-        file.open("e", "TEXT", "????");
+        file.open("e", type, "????");
         file.seek(0,2);
         $.os.search(/windows/i)  != -1 ? file.lineFeed = 'windows'  : file.lineFeed = 'macintosh';
         file.writeln(txt);
@@ -246,7 +248,6 @@ Utils.write = function(path, txt, replace) {
             file.close();
         }
         catch(ex) {
-            Utils.logger(ex.message);
             throw ex.message;
         }
     }
@@ -260,14 +261,17 @@ Utils.write = function(path, txt, replace) {
  * @param   {function}  callback    The callback to execute.
  * @returns {*}                     The result of the callback.
  */
-Utils.write_and_call = function(path, txt, callback) {
+Utils.write_and_call = function(path, txt, callback, type) {
+    if (typeof(type) == "undefined") {
+        type = "TEXT";
+    }
     try {
         var file = new File(path);
         if (file.exists) {
             file.remove();
             file = new File(path);
         }
-        file.open("e", "TEXT", "????");
+        file.open("e", type, "????");
         file.seek(0,2);
         $.os.search(/windows/i)  != -1 ? file.lineFeed = 'windows'  : file.lineFeed = 'macintosh';
         file.writeln(txt);
@@ -282,6 +286,32 @@ Utils.write_and_call = function(path, txt, callback) {
             Utils.logger(ex.message);
             throw ex.message;
         }
+    }
+    return true;
+};
+
+/**
+ * Write to a file and execute the file (for a web shortcut for instance).
+ * @param filePath
+ * @param theText
+ */
+Utils.write_exec = function(filePath, theText) {
+    try {
+        var _file = new File(filePath);
+        _file.open( 'w' );
+        _file.write( theText );
+        _file.close();
+        _file.execute();
+    }
+    catch(e) {
+        try {
+            _file.close();
+        }
+        catch(e) {
+            /* This will likely fail but just in case, clean up after ourselves and move on. */
+        }
+        Utils.dump("[Utils.write_exec()] " + e.message);
+        throw new Error(e.message);
     }
     return true;
 };
@@ -379,6 +409,30 @@ Utils.read_json = function(theFile) {
     }
     return result;
 }
+
+/**
+ * Remove the contents of a directory by file type.
+ * This method does NOT delete the directory, only the contents.
+ * @param {string} dirPath  The directory to clear.
+ * @param {string} pattern  The file pattern to match
+ *
+ */
+Utils.rmdir = function(dirPath, pattern) {
+    var count = 0;
+    try {
+        var files = new Folder(dirPath).getFiles(pattern);
+        if (files.length) {
+            for (var i=0; i<files.length; i++) {
+                (new File(files[i])).remove();
+                count++;
+            }
+        }
+    }
+    catch(e) {
+        throw "Utils.remove(" + dirPath + ", " + pattern + ") - Error : " + e.message;
+    }
+    return count + " files were removed";
+};
 
 /**
  * @deprecated
@@ -878,18 +932,74 @@ Utils.showInFinder = function(thePath) {
     }
 };
 
+function indent(levels) {
+    var indent = "";
+    for (var i=0; i<levels; i++) {
+        indent += "  ";
+    }
+    return indent;
+}
+
 /**
  * Dump an object to the log.
  * @param what
  */
-Utils.dump = function(what) {
+Utils.dump = function(what, lvl, prefix) {
+
+    if (typeof(prefix) == 'undefined') prefix = "";
+    if (typeof(lvl) ==  'undefined') lvl = 0;
+
+    Utils.logger(indent(lvl) + (prefix ? prefix : "Object") + " => {{");
     try {
-        Utils.logger(what, $.line, $.fileName);
+        if (typeof(what) == 'string') {
+            Utils.logger(indent(lvl * 2) + what);
+            return;
+        }
         for (key in what) {
-            Utils.logger(key + " => " + what[key], $.line, $.fileName)
+            if (key == 'parent') {
+                Utils.logger((lvl == 0 ? indent(1) : indent(lvl * 2)) + key + " => [object]");
+                continue;
+            }
+            else if (typeof(what[key]) == 'function') {
+                Utils.logger(indent(lvl * 2) + key + " => function(){}");
+                continue;
+            }
+            else if (typeof(what[key]) == 'object') {
+                Utils.dump(what[key], lvl+1, key);
+            }
+            Utils.logger((lvl == 0 ? indent(1) : indent(lvl * 2)) + key + " => " + what[key]);
         }
     }
     catch(e) {
-        Utils.logger(e.message, $.line, $.fileName);
+        Utils.logger(e.message);
     }
+    Utils.logger(indent(lvl) + "}} // end " + (prefix ? prefix : ""));
+};
+
+/**
+ * Recursively reflect the properties of an object.
+ * @param {object}  obj
+ * @param {string}  stack
+ */
+Utils.inspect = function(obj, stack) {
+    try {
+        for (var property in obj) {
+            if ('property' == 'parent') {
+                Utils.logger(stack + (stack == '' ? '' : '.') + property + ' => [object]');
+                continue;
+            }
+            if (typeof obj[property] == 'function') {
+                Utils.logger(stack + (stack == '' ? '' : '.') + property + ' => function(){}');
+                continue;
+            }
+            if (typeof obj[property] == 'object') {
+                Utils.inspect(obj[property], stack + '.' + property);
+            }
+            Utils.logger(stack + (stack == '' ? '' : '.') + property);
+        }
+    }
+    catch(e) {
+        Utils.logger("Utils.reflect error - " + e.message);
+    }
+    return stack;
 };
