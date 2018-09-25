@@ -5,7 +5,7 @@ This CEP extension for Adobe Illustrator demonstrates how to build extensions to
 
 If you are not installing this extension via the Adobe Exchange marketplace, and have downloaded it to your computer, we recommend [Anastasiy's Extension Manager](https://install.anastasiy.com/). Simply download the Extension Manager and follow the instructions.
 
-You will need an API Token in order to use this extension. You may obtain an API Token by writing to [enquiries@astutegraphics.com](mailto:enquiries@astutegraphics.com?subject=Astui Enquiry&body=Please send me information on how to obtain an ASTUI API token.)
+You will need an API Token in order to use this extension. You may obtain an API Token by writing to [enquiries@astutegraphics.com](mailto:enquiries@astutegraphics.com)
 
 ## Smart Remove Point
 
@@ -31,7 +31,7 @@ This extension was written by Scott Lewis, a digital illustrator, icon designer,
 
 ## About the Astui API
 
-_*Astui*_ is the web-based REST API version of Astute Graphics' leading Adobe Illustrator plugin technology, AGTech. You can learn more about Astui from [the Astute Graphics website](https://astutegraphics.com/tech/sdk-web-api/) or by emailing [enquiries@astutegraphics.com](mailto:enquiries@astutegraphics.com?subject=Astui Enquiry&body=I would like to learn more about the Astui API.)
+_*Astui*_ is the web-based REST API version of Astute Graphics' leading Adobe Illustrator plugin technology, AGTech. You can learn more about Astui from [the Astute Graphics website](https://astutegraphics.com/tech/sdk-web-api/) or by emailing [enquiries@astutegraphics.com](mailto:enquiries@astutegraphics.com)
                 
 
 
