@@ -244,7 +244,7 @@ function slash(url) {
  * @param   {string} divider
  * @returns {string}
  */
-function tackon(base, add, divider) {
+function pack(base, add, divider) {
     if (base.charAt(base.length-1) != divider) {
         base += divider;
     }
@@ -273,6 +273,26 @@ function trap(func, customError) {
     catch(e) {
         return customError || e.message ;
     }
+}
+
+/**
+ * Format date into a filename-friendly format.
+ * @param   {string}  date
+ * @returns {string} "YYYY-MM-DD"
+ */
+function dateFormat(date, separator) {
+    if (! isDefined(separator)) {
+        separator = "-";
+    }
+    var d = new Date(date),
+        month = '' + (d.getMonth() + 1),
+        day   = '' + d.getDate(),
+        year  = d.getFullYear();
+
+    if (month.length < 2) month = '0' + month;
+    if (day.length < 2) day = '0' + day;
+
+    return [year, month, day].join(separator);
 }
 
 /**

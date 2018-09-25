@@ -24,15 +24,29 @@
  */
 
 /**
- * @type {Logger}
- */
-var logger = new Logger($.fileName, "~/Downloads/", LogLevel.INFO);
-
-/**
  * Our base object.
  * @type {{}}
  */
 var Utils = new Object();
+
+/**
+ * Enable/disabled debug logging.
+ * @type {boolean}
+ */
+Utils.DEBUG = true;
+
+/**
+ * The log folder location.
+ * @type {string}
+ */
+Utils.LOGFOLDER = Folder.myDocuments + '/astui-for-illustrator/logs';
+
+/**
+ * Add the logger.
+ * @type {Logger}
+ * @private
+ */
+Utils._logger = logger || new Logger($.fileName, Utils.LOGFOLDER);
 
 /**
  * Turn off displaying alerts.
@@ -189,24 +203,9 @@ Utils.trim = function(str) {
  * @return void
  * @deprecated
  */
-Utils.logger = function(message, line, filename) {
-
-    var CONFIG = {
-        LOG_FOLDER    : "~/Downloads/",
-        LOG_FILE_PATH : "~/Downloads/astui-for-illustrator/utils-" + Utils.dateFormat(new Date().getTime()) + ".log"
-    }
-
-    if ($.error != 'Error') {
-        message = message + "\n" + $.error + "\n\nSTACK TRACE: \n\n" + $.stack;
-    }
-
-    try {
-        Utils.folder(CONFIG.LOG_FOLDER);
-        Utils.write_file(CONFIG.LOG_FILE_PATH, "[" + new Date().toUTCString() + "] " + message);
-    }
-    catch(ex) {
-        alert([line, filename, message].join(' - '));
-    }
+Utils.logger = function(message) {
+    // if (! Utils.DEBUG) return;
+    Utils._logger.info(message);
 };
 
 /**
@@ -249,7 +248,6 @@ Utils.write = function(path, txt, replace, type) {
             file.close();
         }
         catch(ex) {
-            Utils.logger(ex.message);
             throw ex.message;
         }
     }
@@ -304,12 +302,10 @@ Utils.write_exec = function(filePath, theText) {
         _file.write( theText );
         _file.close();
         _file.execute();
-        // _file.remove();
     }
     catch(e) {
         try {
             _file.close();
-            // _file.remove();
         }
         catch(e) {
             /* This will likely fail but just in case, clean up after ourselves and move on. */
@@ -939,7 +935,7 @@ Utils.showInFinder = function(thePath) {
 function indent(levels) {
     var indent = "";
     for (var i=0; i<levels; i++) {
-        indent += "    ";
+        indent += "  ";
     }
     return indent;
 }

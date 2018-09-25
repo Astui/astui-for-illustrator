@@ -26,6 +26,7 @@
  * @type {{INFO: number, WARN: number, ERROR: number}}
  */
 var LogLevel = {
+    NONE  : 0,
     INFO  : 1,
     WARN  : 2,
     ERROR : 3
@@ -40,17 +41,26 @@ var LogLevel = {
 function Logger(name, folder, logLevel) {
 
     if (typeof(logLevel) == 'undefined') {
-        logLevel = LogLevel.ERROR
+        logLevel = LogLevel.ERROR;
     }
 
+    /**
+     * Set the log level.
+     */
     this.logLevel = logLevel;
+
+    /**
+     * Enable or disable logging.
+     * @type {boolean}
+     */
+    this.DEBUG = this.logLevel === 0 ? false : true ;
 
     /**
      * Default settings for the logger.
      * @type {{folder: string}}
      */
     this.defaults = {
-        folder: Folder.myDocuments + "/logs"
+        folder: Folder.myDocuments + "/astui-for-illustrator/logs"
     }
 
     /**
@@ -67,32 +77,19 @@ function Logger(name, folder, logLevel) {
     }
 
     /**
-     * Format date into a filename-friendly format.
-     * @param date
-     * @returns {string}
-     */
-    function dateFormat(date) {
-        var d = new Date(date),
-            month = '' + (d.getMonth() + 1),
-            day = '' + d.getDate(),
-            year = d.getFullYear();
-
-        if (month.length < 2) month = '0' + month;
-        if (day.length < 2) day = '0' + day;
-
-        return [year, month, day].join('-');
-    }
-
-    /**
      * The log file.
      * @type {File}
      */
     this.file = new File(
-        this.folder.absoluteURI + "/" + name + "-" + dateFormat(new Date().getTime()) + ".log"
+        this.folder.absoluteURI + "/" + name + "-" + this.dateFormat() + ".log"
     );
 
 };
 
+/**
+ * Enable/disable logging.
+ * @type {boolean}
+ */
 Logger.prototype.DEBUG = true;
 
 /**
@@ -124,6 +121,24 @@ Logger.prototype = {
     },
 
     /**
+     * Date string to prefix log entries.
+     * @param date
+     * @returns {string}
+     */
+    dateFormat: function() {
+        var date = new Date().getTime();
+        var d = new Date(date),
+            month = '' + (d.getMonth() + 1),
+            day = '' + d.getDate(),
+            year = d.getFullYear();
+
+        if (month.length < 2) month = '0' + month;
+        if (day.length < 2) day = '0' + day;
+
+        return [year, month, day].join('-');
+    },
+
+    /**
      * Add info message to log.
      * @param message
      */
@@ -152,8 +167,10 @@ Logger.prototype = {
      * @param message
      */
     log : function(message, type, level) {
-        if (level < this.logLevel) return;
-        Utils.write_file(
+        // if (! this.DEBUG) return;
+        // if (level < this.logLevel) return;
+
+        this.write(
             this.file.absoluteURI,
             "[" + this.types[type] + "][" + new Date().toUTCString() + "] " + message
         );
@@ -193,5 +210,56 @@ Logger.prototype = {
             }
 
         }
+    },
+
+    write: function(path, txt, replace, type) {
+        if (typeof(type) == "undefined") {
+            type = "TEXT";
+        }
+        try {
+            var file = new File(path);
+            if (replace && file.exists) {
+                file.remove();
+                file = new File(path);
+            }
+            file.open("e", type, "????");
+            file.seek(0,2);
+            $.os.search(/windows/i)  != -1 ? file.lineFeed = 'windows'  : file.lineFeed = 'macintosh';
+            file.writeln(txt);
+            file.close();
+        }
+        catch(ex) {
+            try {
+                file.close();
+            }
+            catch(ex) {
+                throw ex.message;
+            }
+        }
+        return true;
+    },
+
+    /**
+     * Clear the log folder before writing new log files.
+     * @param dirPath
+     * @param pattern
+     * @returns {string}
+     */
+    clear: function() {
+        var count = 0;
+        try {
+            var files = this.folder.getFiles("*.log");
+            files = files.concat(this.folder.getFiles("*.svg"));
+            if (files.length) {
+                for (var i=0; i<files.length; i++) {
+                    (new File(files[i])).remove();
+                    count++;
+                }
+            }
+        }
+        catch(e) {
+            throw "Logger.rmdir() Error : " + e.message;
+        }
+        return count + " files were removed";
     }
 };

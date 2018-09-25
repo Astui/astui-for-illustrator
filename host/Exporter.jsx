@@ -26,7 +26,22 @@
  *   ANY KIND INCLUDING LOSS OF DATA OR DAMAGE TO HARDWARE OR SOFTWARE. IF YOU DO
  *   NOT AGREE TO THESE TERMS, DO NOT USE THIS SCRIPT.
  */
-var Exporter = function(){};
+var Exporter = function(location) {
+    this.location = location;
+    this.logger = logger || new Logger($.fileName, this.location);
+};
+
+/**
+ * Enable/disable debug logging.
+ * @type {boolean}
+ */
+Exporter.prototype.DEBUG = true;
+
+/**
+ * The location to export to.
+ * @type {null}
+ */
+Exporter.prototype.location = null;
 
 /**
  * Not implemented error string.
@@ -39,7 +54,7 @@ Exporter.prototype._notImplemented = "Not yet implemented";
  * Attach a logger class.
  * @type {Logger}
  */
-Exporter.prototype.logger = new Logger( "exporter", "~/Downloads/astui-for-illustrator/", LogLevel.INFO);
+Exporter.prototype.logger = null;
 
 /**
  * Get the preset colorMode.
@@ -102,10 +117,12 @@ Exporter.prototype.createDocument = function(width, height, colorMode) {
         doc.isNew = true;
     }
     catch(e) {
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - e.message : " + e.message);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - width : "     + width);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - height : "    + height);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - colorMode : " + colorMode);
+        if (this.DEBUG) {
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - e.message : " + e.message);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - width : "     + width);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - height : "    + height);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - colorMode : " + colorMode);
+        }
         throw "Exporter.createDocument() failed - " + e.message;
     }
 
@@ -127,9 +144,11 @@ Exporter.prototype.copyObjectsToDoc = function(objects, destinationDocument) {
         }
     }
     catch(e) {
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - e.message : " + e.message);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - objects : " + objects);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - destinationDocument : " + destinationDocument);
+        if (this.DEBUG) {
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - e.message : " + e.message);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - objects : " + objects);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - destinationDocument : " + destinationDocument);
+        }
         throw "Exporter.copyObjectsToDoc() failed - " + e.message;
     }
     return true;
@@ -200,11 +219,13 @@ Exporter.prototype.exportFile = function(selection, filepath, exportType, export
         doc.close(SaveOptions.DONOTSAVECHANGES);
     }
     else {
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - SVG export failed - " + e.message);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - svgExportOptions : "  + svgExportOptions);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - filepath : "          + filepath);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - selection : "         + selection);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - targetFile : "        + targetFile);
+        if (this.DEBUG) {
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - SVG export failed - " + e.message);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - svgExportOptions : "  + svgExportOptions);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - filepath : "          + filepath);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - selection : "         + selection);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - targetFile : "        + targetFile);
+        }
         throw "Exporter.exportFile() failed - " + e.message;
     }
 
@@ -243,11 +264,13 @@ Exporter.prototype.selectionToSVG = function(selection, filepath) {
         );
     }
     catch(e) {
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - SVG export failed - " + e.message );
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - svgExportOptions : "  + svgExportOptions );
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - filepath : "          + filepath );
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - selection : "         + selection);
-        this.logger.error("[" + $.fileName + "][" + $.line + "] - targetFile : "        + targetFile);
+        if (this.DEBUG) {
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - SVG export failed - " + e.message );
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - svgExportOptions : "  + svgExportOptions );
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - filepath : "          + filepath );
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - selection : "         + selection);
+            this.logger.error("[" + $.fileName + "][" + $.line + "] - targetFile : "        + targetFile);
+        }
         throw "Exporter.selectionToSVG() failed  - " + e.message ;
     }
 

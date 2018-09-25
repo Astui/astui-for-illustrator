@@ -33,15 +33,6 @@
 
 $.localize = true;
 
-#include "Logger.jsx";
-#include "JSON.jsx";
-#include "Helpers.jsx";
-#include "Utils.jsx";
-#include "Configuration.jsx";
-#include "FileSystem.jsx";
-#include "MenuCommand.jsx";
-#include "Exporter.jsx";
-
 /**
  * @type {{
  *      APP_NAME: string,
@@ -54,13 +45,34 @@ var Config = {
     APP_NAME         : 'astui-for-illustrator',
     USER             : $.getenv('USER'),
     HOME             : $.getenv('HOME'),
-    DOCUMENTS        : Folder.myDocuments +  "",
-    LOGFOLDER        : '~/Downloads/astui-for-illustrator',
+    DOCUMENTS        : Folder.myDocuments +  '',
+    LOGFOLDER        : Folder.myDocuments + '/astui-for-illustrator/logs',
     API_KEY          : 'YOUR_API_KEY',
     API_ENDPOINT     : 'ASTUI_API_ENDPIONT',
-    COMMON_LOG       : '~/Downloads/astui-for-illustrator/common.log',
-    LOG_LEVEL        : 1
+    COMMON_LOG       : Folder.myDocuments + '/astui-for-illustrator/logs/common.log',
+    DEBUG            : true
 };
+
+#include "Logger.jsx";
+
+/**
+ * The global logger.
+ * The logger class needs to be created before any other classes that use the logger.
+ */
+var logger = new Logger(Config.APP_NAME, Config.LOGFOLDER);
+
+logger.clear();
+logger.info(logger.dateFormat());
+
+// Include other classes and methods.
+
+#include "JSON.jsx";
+#include "Helpers.jsx";
+#include "Utils.jsx";
+#include "Configuration.jsx";
+#include "FileSystem.jsx";
+#include "MenuCommand.jsx";
+#include "Exporter.jsx";
 
 /**
  * Supported Ai Object types for this script.
@@ -82,11 +94,13 @@ var supportedTypes = [
  * @private
  */
 var _GLOBALS = {
+
     /**
      * Whether or not the ExternalObjectLib is loaded
      * @type {boolean}
      */
     ExternalObjectLib : false,
+
     /**
      * The settings file path.
      * @type {string}
@@ -106,31 +120,38 @@ var _GLOBALS = {
     pathItems : []
 };
 
-Utils.dump({name: 'CONFIG',   value: Utils.inspect(Config) });
-Utils.dump({name: '_GLOBALS', value: Utils.inspect(_GLOBALS) });
-
 /**
  * The global document object.
  */
 var doc = app.activeDocument;
 
+Utils.DEBUG = true;
+Utils.dump({name: 'CONFIG',   value: Utils.inspect(Config, '') });
+Utils.dump({name: '_GLOBALS', value: Utils.inspect(_GLOBALS, '') });
+
+var counter = 0;
+
 /**
  * Run the script using the Module patter.
  */
-var Host = (function(Config) {
+var Host = (function(Config, logger) {
+
+    _getSettings();
 
     /**
      * The local scope logger object.
      * @type {Logger}
      */
-    var _logger   = new Logger(Config.APP_NAME, Config.LOGFOLDER, LogLevel.INFO);
+    var _logger = logger;
 
     /**
      * The exporter class.
      * @type {Exporter}
      * @private
      */
-    var _exporter = new Exporter();
+    var _exporter = new Exporter(
+        pack(Config.DOCUMENTS, Config.APP_NAME, '/')
+    );
 
     /**
      * Prompt user for API_KEY.
@@ -251,15 +272,19 @@ var Host = (function(Config) {
                     // Ignore member functions.
                     if (isFunction( thisItem ) ) continue;
 
-                    Utils.logger(" **************************** START : thisItem **************************** ");
+                    Utils.logger("\n\n");
+                    Utils.logger("+ -------------------------------------------------- +");
+                    Utils.logger("|    START : thisItem                                |");
+                    Utils.logger("+ -------------------------------------------------- +");
                     Utils.dump(thisItem);
-                    Utils.logger(" **************************** END : thisItem **************************** ");
-
-                    Utils.logger( "thisItem.typename = " + getTypename(thisItem) );
+                    Utils.logger("+ -------------------------------------------------- +");
+                    Utils.logger("|    END : pathData                                  |");
+                    Utils.logger("+ -------------------------------------------------- +");
+                    Utils.logger("\n\n");
 
                     // Ignore unsupported typenames.
                     if (! isSupported(getTypename(thisItem))) {
-                        _logger.info("Unsupported type - `" + getTypename(thisItem) + "`");
+                        Utils.logger("Unsupported type - `" + getTypename(thisItem) + "`");
                         continue;
                     }
 
@@ -275,9 +300,15 @@ var Host = (function(Config) {
 
                         selection = _selectByUUID(uuid);
 
-                        Utils.logger(" ********** START : _selectByUUID(uuid) **************************** ");
+                        Utils.logger("\n\n");
+                        Utils.logger("+ -------------------------------------------------- +");
+                        Utils.logger("|    START : _selectByUUID                           |");
+                        Utils.logger("+ -------------------------------------------------- +");
                         Utils.dump(selection);
-                        Utils.logger(" **************************** END : _selectByUUID(uuid) **************************** ");
+                        Utils.logger("+ -------------------------------------------------- +");
+                        Utils.logger("|    END : _selectByUUID                             |");
+                        Utils.logger("+ -------------------------------------------------- +");
+                        Utils.logger("\n\n");
 
                         theCustomEvent = _getNewCSEvent(
                             callbackEventType,
@@ -369,7 +400,7 @@ var Host = (function(Config) {
         var svgData;
 
         try {
-            svgFile = _exporter.selectionToSVG(selection, Config.LOGFOLDER + "/" + uuid + ".svg")
+            svgFile = _exporter.selectionToSVG(selection, pack(Config.LOGFOLDER, uuid + ".svg", '/'));
 
             if (! isObject(svgFile)) {
                 throw new Error("Could not export selection to SVG");
@@ -381,7 +412,7 @@ var Host = (function(Config) {
             }
         }
         catch(e) {
-            Utils.logger("Error : " + e.message);
+            Utils.logger(e.message);
             throw new Error(e);
         }
         return svgData;
@@ -392,8 +423,9 @@ var Host = (function(Config) {
      * @private
      */
     function _moveToTangents() {
-        Utils.logger("Host.moveToTangents() is not yet implemented");
-        throw "Host.moveToTangents() is not yet implemented";
+        var errorMessage = "Host.moveToTangents() is not yet implemented";
+        Utils.logger(errorMessage);
+        throw new Error(errorMessage);
     }
 
     /**
@@ -412,20 +444,43 @@ var Host = (function(Config) {
     }
 
     /**
+     * Get the first selected PathItem.
+     * @returns {*}
+     * @private
+     */
+    function _getFirstSelectedPathItem() {
+        var pathItems = doc.pathItems;
+
+        for (var i=0; i<pathItems.length; i++) {
+            if (pathItems[i].selected) {
+                return pathItems[i];
+            }
+        }
+        return false;
+    }
+
+    /**
      * Update the PathItem with modified points data from Astui.
      * @param pathData
      */
     function _updatePathData(pathData) {
 
-        Utils.logger(" **************************** START : Host._updatePathData(pathData) **************************** ");
-        Utils.logger(" **************************** START : pathData **************************** ");
+        counter = counter + 1;
+
+        Utils.logger("\n\n");
+        Utils.logger("+ -------------------------------------------------- +");
+        Utils.logger("|    START : Host._updatePathData(pathData) " + counter);
+        Utils.logger("+ -------------------------------------------------- +");
+        Utils.logger("|    START : pathData                                |");
+        Utils.logger("+ -------------------------------------------------- +");
         Utils.dump(pathData);
-        Utils.logger(" **************************** END : pathData **************************** ");
+        Utils.logger("+ -------------------------------------------------- +");
+        Utils.logger("|    END : pathData                                  |");
+        Utils.logger("+ -------------------------------------------------- +");
 
         var f,
             doc,
-            theItem,
-            thePlacedItem,
+            thePlacedPathItem,
             pathDataObject,
             thePlacedGroupItem;
 
@@ -444,9 +499,15 @@ var Host = (function(Config) {
 
             var theItem = _getPathItemByUUID(pathDataObject.uuid);
 
-            Utils.logger(" **************************** START : thisItem **************************** ");
+            Utils.logger("\n\n");
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    START : thisItem " + counter);
+            Utils.logger("+ -------------------------------------------------- +");
             Utils.dump(theItem);
-            Utils.logger(" **************************** END : thisItem **************************** ");
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    END : thisItem  " + counter);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("\n\n");
 
             if (! isDefined(theItem)) {
                 throw new Error("theItem is not defined");
@@ -467,40 +528,56 @@ var Host = (function(Config) {
                 throw new Error("Could not import the updated SVG object");
             }
 
-            Utils.logger(" **************************** START : thePlacedGroupItem **************************** ");
+            Utils.logger("\n\n");
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    START : thePlacedGroupItem " + counter);
+            Utils.logger("+ -------------------------------------------------- +");
             Utils.dump(thePlacedGroupItem);
-            Utils.logger(" **************************** END : thePlacedGroupItem **************************** ");
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    END : thePlacedGroupItem " + counter);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("\n\n");
 
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    START : thePlacedGroupItem.pathItems.length ");
+            Utils.logger("+ -------------------------------------------------- +");
+            try {
+                Utils.dump("thePlacedGroupItem.pathItems.length : " + thePlacedGroupItem.pathItems.length);
+                Utils.dump("thePlacedGroupItem.compoundPathItems.length : " + thePlacedGroupItem.compoundPathItems.length);
+                Utils.dump("thePlacedGroupItem.compoundPathItems[0].pathItems.length : " + thePlacedGroupItem.compoundPathItems[0].pathItems.length);
+            }
+            catch(e) {
+                Utils.dump("thePlacedGroupItem.pathItems.length : " + e.message);
+            }
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    END : thePlacedGroupItem.pathItems.length ");
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("\n\n");
+
+            if (! isDefined(thePlacedGroupItem.pathItems)
+                || isDefined(thePlacedGroupItem.pathItems[0])) {
+
+                throw new Error("thePlacedGroupItem.pathItems is not defined");
+            }
+            
             thePlacedPathItem = thePlacedGroupItem.pathItems[0];
 
-            Utils.logger(" **************************** START : thePlacedItem **************************** ");
-            Utils.dump(thePlacedPathItem);
-            Utils.logger(" **************************** END : thePlacedItem **************************** ");
+            // if (isDefined(thePlacedGroupItem.pathItems)) {
+            //     thePlacedPathItem = thePlacedGroupItem.pathItems[0];
+            // }
+            // else {
+            //     thePlacedPathItem = _getFirstSelectedPathItem();
+            // }
 
-            // TODO: DEBUG
-            Utils.logger("Set PathItem position");
-            try {
-                Utils.logger("thePlacedGroupItem.position => ");
-                Utils.dump(thePlacedGroupItem.position);
-            }
-            catch(e) {
-                Utils.logger("thePlacedGroupItem.position Error : " + e.message);
-            }
-            try {
-                Utils.logger("thePlacedPathItem.position => ");
-                Utils.dump(thePlacedPathItem.position);
-            }
-            catch(e) {
-                Utils.logger("thePlacedPathItem.position Error : " + e.message);
-            }
-            try {
-                Utils.logger("theItem.position => ");
-                Utils.dump(theItem.position);
-            }
-            catch(e) {
-                Utils.logger("theItem.position Error : " + e.message);
-            }
-            // TODO: END DEBUG
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    START : thePlacedPathItem " + counter);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.dump(thePlacedPathItem);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    END : thePlacedPathItem " + counter);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("\n\n");
+
             try {
                 thePlacedPathItem.position = theItem.position;
             }
@@ -508,15 +585,21 @@ var Host = (function(Config) {
                 Utils.logger("Could not set PathItem position - " + e.message);
             }
 
-            Utils.logger(" **************************** START : copyPathPoints **************************** ");
+            Utils.logger("\n\n");
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    START : copyPathPoints " + counter);
+            Utils.logger("+ -------------------------------------------------- +");
             Utils.logger("Set PathItem PathPoints");
             copyPathPoints(theItem, thePlacedPathItem);
-            Utils.logger(" **************************** END : copyPathPoints **************************** ");
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    END : copyPathPoints " + counter);
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("\n\n");
 
-            Utils.logger("[Cleanup]  - Remove placed item");
+            Utils.logger("[Cleanup]  - Remove placed item " + counter);
             thePlacedPathItem.remove();
 
-            Utils.logger("[Cleanup] - Remove item note");
+            Utils.logger("[Cleanup] - Remove item note " + counter);
             theItem.note = '';
         }
         catch(e) {
@@ -561,7 +644,7 @@ var Host = (function(Config) {
         Config.API_KEY      = Settings.API_KEY;
         Config.COMMON_LOG   = Settings.COMMON_LOG;
         Config.DEBUG        = Settings.DEBUG;
-        _logger.DEBUG       = Settings.DEBUG;
+        Utils.DEBUG         = Settings.DEBUG;
         Settings.DOCUMENTS  = Config.DOCUMENTS;
         Settings.APP_NAME   = Config.APP_NAME;
         return JSON.stringify(Settings);
@@ -589,7 +672,7 @@ var Host = (function(Config) {
             );
         }
         catch(e) {
-            /* TODO: How should we handle failures? This is not a critical function so ignore it? */
+            prompt("Visit " + address + " for more information.", address);
         }
     };
 
@@ -598,16 +681,17 @@ var Host = (function(Config) {
      * @private
      */
     function _init() {
-        var errorMessage = false;
+        var errorMessage;
         try {
             Utils.rmdir(Config.LOGFOLDER, "*.svg");
             Utils.rmdir(Config.LOGFOLDER, "*.log");
         }
         catch(e) {
             errorMessage = "Could not clear the log folder - " + e.message;
+            Utils.logger(errorMessage);
+            throw new Error(errorMessage);
         }
-        Utils.logger(errorMessage || "Host._init() completed without errors");
-        return errorMessage || "Host._init() completed without errors";
+        return "Host._init() completed without errors";
     };
 
     /**
@@ -733,10 +817,28 @@ var Host = (function(Config) {
         /**
          * Show a dump of an object.
          * @param   {*} what
+         * @param   {string} label
          * @returns {boolean}
          */
-        dump: function(what) {
-            Utils.dump(what);
+        dump: function(what, label) {
+
+            Utils.logger("\n\n");
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    START : " + label );
+            Utils.logger("+ -------------------------------------------------- +");
+
+            try {
+                Utils.dump(what);
+            }
+            catch(e) {
+                Utils.dump(e.message);
+            }
+
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("|    END : " + label );
+            Utils.logger("+ -------------------------------------------------- +");
+            Utils.logger("\n\n");
+
             return true;
         },
 
@@ -748,5 +850,4 @@ var Host = (function(Config) {
         }
     }
 
-    // The closure takes the Configuration object as its argument.
-})(Config);
+})(Config, logger);
