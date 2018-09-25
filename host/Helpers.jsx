@@ -470,15 +470,6 @@ function svgToPathPointArray(svg)
             result.pop();
         }
     }
-    for(i=0;i<result.length;i++)
-    {
-        result[i].anchor[0] *= 0.5;
-        result[i].anchor[1] *= 0.5;
-        result[i].leftDirection[0] *= 0.5;
-        result[i].leftDirection[1] *= 0.5;
-        result[i].rightDirection[0] *= 0.5;
-        result[i].rightDirection[1] *= 0.5;
-    }
     return result;
 
 }

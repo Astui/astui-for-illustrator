@@ -400,6 +400,32 @@ var Host = (function(Config, logger) {
         var svgData;
 
         try {
+
+            svgData = Utils.read(svgFile);
+
+            if (! svgData) {
+                throw new Error("Could not read exported SVG file");
+            }
+        }
+        catch(e) {
+            Utils.logger(e.message);
+            throw new Error(e);
+        }
+        return svgData;
+    }
+
+    /**
+     * @deprecated
+     * Process a selected PathItem.
+     * @param thePathItem
+     * @param uuid
+     * @returns {string}
+     * @private
+     */
+    function dep_processPathItem(selection, uuid) {
+        var svgData;
+
+        try {
             svgFile = _exporter.selectionToSVG(selection, pack(Config.LOGFOLDER, uuid + ".svg", '/'));
 
             if (! isObject(svgFile)) {
