@@ -69,10 +69,10 @@ logger.info(logger.dateFormat());
 #include "JSON.jsx";
 #include "Helpers.jsx";
 #include "Utils.jsx";
-#include "Configuration.jsx";
+// #include "Configuration.jsx";
 #include "FileSystem.jsx";
 #include "MenuCommand.jsx";
-#include "Exporter.jsx";
+// #include "Exporter.jsx";
 
 /**
  * Supported Ai Object types for this script.
@@ -149,9 +149,9 @@ var Host = (function(Config, logger) {
      * @type {Exporter}
      * @private
      */
-    var _exporter = new Exporter(
-        pack(Config.DOCUMENTS, Config.APP_NAME, '/')
-    );
+    // var _exporter = new Exporter(
+    //     pack(Config.DOCUMENTS, Config.APP_NAME, '/')
+    // );
 
     /**
      * Prompt user for API_KEY.
@@ -272,15 +272,7 @@ var Host = (function(Config, logger) {
                     // Ignore member functions.
                     if (isFunction( thisItem ) ) continue;
 
-                    Utils.logger("\n\n");
-                    Utils.logger("+ -------------------------------------------------- +");
-                    Utils.logger("|    START : thisItem                                |");
-                    Utils.logger("+ -------------------------------------------------- +");
-                    Utils.dump(thisItem);
-                    Utils.logger("+ -------------------------------------------------- +");
-                    Utils.logger("|    END : pathData                                  |");
-                    Utils.logger("+ -------------------------------------------------- +");
-                    Utils.logger("\n\n");
+                    Host.dump(thisItem, 'thisItem');
 
                     // Ignore unsupported typenames.
                     if (! isSupported(getTypename(thisItem))) {
@@ -296,29 +288,18 @@ var Host = (function(Config, logger) {
 
                         uuid = thisItem.note;
 
-                        Utils.logger( 'thisItem.note (UUID) = ' + uuid );
-
-                        selection = _selectByUUID(uuid);
-
-                        Utils.logger("\n\n");
-                        Utils.logger("+ -------------------------------------------------- +");
-                        Utils.logger("|    START : _selectByUUID                           |");
-                        Utils.logger("+ -------------------------------------------------- +");
-                        Utils.dump(selection);
-                        Utils.logger("+ -------------------------------------------------- +");
-                        Utils.logger("|    END : _selectByUUID                             |");
-                        Utils.logger("+ -------------------------------------------------- +");
-                        Utils.logger("\n\n");
+                        Host.dump('UUID : ' + uuid, 'thisItem.note');
 
                         theCustomEvent = _getNewCSEvent(
                             callbackEventType,
                             JSON.stringify({
                                 uuid: uuid,
-                                svg: _processPathItem(selection, uuid),
-                                file: Config.LOGFOLDER + '/' + uuid + '.svg'
+                                svg: _processPathItem(thisItem, uuid)
                             })
                         );
-                        Utils.logger('theCustomEvent: ' + JSON.stringify(theCustomEvent));
+
+                        Host.dump(JSON.stringify(theCustomEvent), 'theCustomEvent');
+
                         theCustomEvent.dispatch();
                     }
                     else {
@@ -396,42 +377,12 @@ var Host = (function(Config, logger) {
      * @returns {string}
      * @private
      */
-    function _processPathItem(selection, uuid) {
+    function _processPathItem(thePathItem, uuid) {
         var svgData;
 
         try {
 
-            svgData = Utils.read(svgFile);
-
-            if (! svgData) {
-                throw new Error("Could not read exported SVG file");
-            }
-        }
-        catch(e) {
-            Utils.logger(e.message);
-            throw new Error(e);
-        }
-        return svgData;
-    }
-
-    /**
-     * @deprecated
-     * Process a selected PathItem.
-     * @param thePathItem
-     * @param uuid
-     * @returns {string}
-     * @private
-     */
-    function dep_processPathItem(selection, uuid) {
-        var svgData;
-
-        try {
-            svgFile = _exporter.selectionToSVG(selection, pack(Config.LOGFOLDER, uuid + ".svg", '/'));
-
-            if (! isObject(svgFile)) {
-                throw new Error("Could not export selection to SVG");
-            }
-            svgData = Utils.read(svgFile);
+            svgData = pathItemToSVG(thePathItem);
 
             if (! svgData) {
                 throw new Error("Could not read exported SVG file");
@@ -470,22 +421,6 @@ var Host = (function(Config, logger) {
     }
 
     /**
-     * Get the first selected PathItem.
-     * @returns {*}
-     * @private
-     */
-    function _getFirstSelectedPathItem() {
-        var pathItems = doc.pathItems;
-
-        for (var i=0; i<pathItems.length; i++) {
-            if (pathItems[i].selected) {
-                return pathItems[i];
-            }
-        }
-        return false;
-    }
-
-    /**
      * Update the PathItem with modified points data from Astui.
      * @param pathData
      */
@@ -497,133 +432,29 @@ var Host = (function(Config, logger) {
         Utils.logger("+ -------------------------------------------------- +");
         Utils.logger("|    START : Host._updatePathData(pathData) " + counter);
         Utils.logger("+ -------------------------------------------------- +");
-        Utils.logger("|    START : pathData                                |");
-        Utils.logger("+ -------------------------------------------------- +");
-        Utils.dump(pathData);
-        Utils.logger("+ -------------------------------------------------- +");
-        Utils.logger("|    END : pathData                                  |");
-        Utils.logger("+ -------------------------------------------------- +");
 
-        var f,
-            doc,
-            thePlacedPathItem,
-            pathDataObject,
-            thePlacedGroupItem;
-
-        doc = app.activeDocument;
+        Host.dump(pathData, "pathData");
 
         try {
 
             Utils.logger("_updatePathData(pathData)[pathData] " + pathData);
 
-            pathDataObject = JSON.parse(pathData);
+            pathData = JSON.parse(pathData);
 
             // Make sure we were able to parse the JSON response.
-            if ( ! isObject(pathDataObject)) {
+            if ( ! isObject(pathData)) {
                 throw new Error("Could not parse pathData");
             }
 
-            var theItem = _getPathItemByUUID(pathDataObject.uuid);
+            var theItem = _getPathItemByUUID(pathData.uuid);
 
-            Utils.logger("\n\n");
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.logger("|    START : thisItem " + counter);
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.dump(theItem);
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.logger("|    END : thisItem  " + counter);
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.logger("\n\n");
+            Host.dump(theItem, "thisItem " + counter);
 
             if (! isDefined(theItem)) {
                 throw new Error("theItem is not defined");
             }
-            else if ( ! isDefined(pathDataObject.file)) {
-                throw new Error("pathDataObject.file is not defined");
-            }
 
-            f = new File(pathDataObject.file);
-
-            if ( ! f.exists) {
-                throw new Error(f.path + " does not exist");
-            }
-
-            thePlacedGroupItem = doc.groupItems.createFromFile(f);
-
-            if ( ! isDefined(thePlacedGroupItem)) {
-                throw new Error("Could not import the updated SVG object");
-            }
-
-            Utils.logger("\n\n");
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.logger("|    START : thePlacedGroupItem " + counter);
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.dump(thePlacedGroupItem);
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.logger("|    END : thePlacedGroupItem " + counter);
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.logger("\n\n");
-
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.logger("|    START : thePlacedGroupItem.pathItems.length ");
-            Utils.logger("+ -------------------------------------------------- +");
-            try {
-                Utils.dump("thePlacedGroupItem.pathItems.length : " + thePlacedGroupItem.pathItems.length);
-                Utils.dump("thePlacedGroupItem.compoundPathItems.length : " + thePlacedGroupItem.compoundPathItems.length);
-                Utils.dump("thePlacedGroupItem.compoundPathItems[0].pathItems.length : " + thePlacedGroupItem.compoundPathItems[0].pathItems.length);
-            }
-            catch(e) {
-                Utils.dump("thePlacedGroupItem.pathItems.length : " + e.message);
-            }
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.logger("|    END : thePlacedGroupItem.pathItems.length ");
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.logger("\n\n");
-
-            if (! isDefined(thePlacedGroupItem.pathItems)
-                || isDefined(thePlacedGroupItem.pathItems[0])) {
-
-                throw new Error("thePlacedGroupItem.pathItems is not defined");
-            }
-            
-            thePlacedPathItem = thePlacedGroupItem.pathItems[0];
-
-            // if (isDefined(thePlacedGroupItem.pathItems)) {
-            //     thePlacedPathItem = thePlacedGroupItem.pathItems[0];
-            // }
-            // else {
-            //     thePlacedPathItem = _getFirstSelectedPathItem();
-            // }
-
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.logger("|    START : thePlacedPathItem " + counter);
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.dump(thePlacedPathItem);
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.logger("|    END : thePlacedPathItem " + counter);
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.logger("\n\n");
-
-            try {
-                thePlacedPathItem.position = theItem.position;
-            }
-            catch(e) {
-                Utils.logger("Could not set PathItem position - " + e.message);
-            }
-
-            Utils.logger("\n\n");
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.logger("|    START : copyPathPoints " + counter);
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.logger("Set PathItem PathPoints");
-            copyPathPoints(theItem, thePlacedPathItem);
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.logger("|    END : copyPathPoints " + counter);
-            Utils.logger("+ -------------------------------------------------- +");
-            Utils.logger("\n\n");
-
-            Utils.logger("[Cleanup]  - Remove placed item " + counter);
-            thePlacedPathItem.remove();
+            setPathItemFromSVG(theItem, pathData.path);
 
             Utils.logger("[Cleanup] - Remove item note " + counter);
             theItem.note = '';
@@ -632,6 +463,11 @@ var Host = (function(Config, logger) {
             Utils.logger("_updatePathData(pathData) Error : " + e.message);
             throw new Error(e);
         }
+
+        Utils.logger("+ -------------------------------------------------- +");
+        Utils.logger("|    END : Host._updatePathData(pathData) " + counter);
+        Utils.logger("+ -------------------------------------------------- +");
+        Utils.logger("\n\n");
 
         return "Host.updatePathData completed without errors";
     };
@@ -721,6 +557,45 @@ var Host = (function(Config, logger) {
     };
 
     /**
+     * Read data from a file.
+     * @param filePath
+     * @returns {*}
+     * @private
+     */
+    function _read(filePath) {
+        var result = { content: "" };
+        try {
+            result.content = Utils.read(filePath);
+        }
+        catch(e) {
+            result.content = e.message;
+        }
+        return JSON.stringify(result);
+    }
+
+    /**
+     * Host interface to Utils.write()
+     * @param {string}  filePath
+     * @param {string}  txt
+     * @param {boolean} replace
+     * @param {string}  type
+     * @returns {boolean}
+     * @private
+     */
+    function _write(filePath, txt, replace, type) {
+        if (! isDefined(replace)) replace = true;
+
+        var result = { result: "" };
+        try {
+            result.result = Utils.write(filePath, txt, replace, type || "TEXT");
+        }
+        catch(e) {
+            result.result = e.message;
+        }
+        return JSON.stringify(result);
+    }
+
+    /**
      * Public object.
      */
     return {
@@ -733,7 +608,7 @@ var Host = (function(Config, logger) {
         /**
          * The exporter class.
          */
-        exporter : _exporter,
+        // exporter : _exporter,
 
         /**
          * Host interface to Utils.read()
@@ -741,34 +616,18 @@ var Host = (function(Config, logger) {
          * @returns {JSON}
          */
         read: function(filePath) {
-            var result = { content: "" };
-            try {
-                result.content = Utils.read(filePath);
-            }
-            catch(e) {
-                result.content = e.message;
-            }
-            return JSON.stringify(result);
+            return _read(filePath);
         },
 
         /**
          * Host interface to Utils.write()
-         * @param filePath
-         * @param txt
-         * @param replace
-         * @returns {*}
+         * @param {string} filePath
+         * @param {string} txt
+         * @param {boolean} replace
+         * @returns {boolean}
          */
         write: function(filePath, txt, replace, type) {
-            if (! isDefined(replace)) replace = true;
-
-            var result = { result: "" };
-            try {
-                result.result = Utils.write(filePath, txt, replace, type || "TEXT");
-            }
-            catch(e) {
-                result.result = e.message;
-            }
-            return JSON.stringify(result);
+            _write(filePath, txt, replace, type);
         },
 
         /**

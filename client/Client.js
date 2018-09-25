@@ -157,7 +157,6 @@ $(function() {
      */
     Client.init = function() {
 
-        var $message   = $("#message");
         var $buttonSRP = $("#button-srp");
         var $buttonMTT = $("#button-mtt");
         var $range     = $("#tolerance");
@@ -243,93 +242,53 @@ $(function() {
                 Client.dump("Start svgPathData", "svgPathData");
                 Client.dump(svgPathData, "svgPathData");
 
-                Client.dump("Client.sendPathPointToAstui got SVG path data", "Get Path Data");
+                console.log("PATH ORIGINAL : " + svgPathData.svg);
 
-                // $svg = removeEmptyNodes(
-                //     $.parseXML(svgPathData.svg)
-                // );
+                thePayload = Client.formatSmartRemovePayload(
+                    svgPathData.svg,
+                    $("#tolerance").val()
+                );
 
-                // $svg = $.parseXML(svgPathData.svg);
+                if (csxsEvent.type == 'moveToTangents') {
+                    thePayload = pack(thePayload, 'angle=45', '&');
+                }
 
-                var svgDoc = new DOMParser().parseFromString(svgPathData.svg, "application/xml");
-                var clone  = svgDoc.cloneNode(true);
+                console.log("The PayLoad");
+                console.log(thePayload);
+                console.log("End The PayLoad");
 
-                // var clone2 = $.parseXML(
-                //     '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"></svg>'
-                // );
+                Client.dump(thePayload, "thePayload");
 
-                $("svg", clone).empty();
+                Client.dump("Client.sendPathPointToAstui make ajax call", "Make Ajax Call");
 
-                var $clone = $(clone);
-                var $svg   = $(svgDoc);
-
-                Client.dump('Parsed XML Document', "Parse XML Document");
-
-                $("path", $svg).each(function(i) {
-
-                    Client.dump('Client.sendPathPointToAstui got path ' + i, "Iterate Paths");
-
-                    $path = $(this);
-
-                    console.log("PATH ORIGINAL : " + $path.attr("d"));
-
-                    thePayload = Client.formatSmartRemovePayload(
-                        $path.attr("d"),
-                        $("#tolerance").val()
-                    );
-
-                    if (csxsEvent.type == 'moveToTangents') {
-                        thePayload = pack(thePayload, 'angle=45', '&');
+                $.ajax({
+                    method  : "POST",
+                    url     : pack(Config.API_ENDPOINT, endPointName, '/'),
+                    data    : thePayload,
+                    async   : false,
+                    headers : {
+                        "Content-Type"  : "application/x-www-form-urlencoded",
+                        "Cache-Control" : "no-cache",
+                        "Accept"        : "application/json, text/plain, */*"
                     }
+                })
+                .done(function(result) {
 
-                    console.log("The PayLoad");
-                    console.log(thePayload);
-                    console.log("End The PayLoad");
+                    Client.dump("Client.sendPathPointToAstui ajax call successful", "Client.sendPathPointToAstui");
+                    Client.dump(result, "Astui path result");
 
-                    Client.dump(thePayload, "thePayload");
-
-                    Client.dump("Client.sendPathPointToAstui make ajax call", "Make Ajax Call");
-
-                    $.ajax({
-                        method  : "POST",
-                        url     : pack(Config.API_ENDPOINT, endPointName, '/'),
-                        data    : thePayload,
-                        async   : false,
-                        headers : {
-                            "Content-Type"  : "application/x-www-form-urlencoded",
-                            "Cache-Control" : "no-cache",
-                            "Accept"        : "application/json, text/plain, */*"
-                        }
-                    })
-                    .done(function(result) {
-
-                        Client.dump("Client.sendPathPointToAstui ajax call successful", "Client.sendPathPointToAstui");
-                        Client.dump(result, "Astui path result");
-
-                        $path.attr('d', result.path);
-
-                        console.log("PATH ASTUI : " + result.path);
-
-                        console.log({
-                            uuid : csxsEvent.data.uuid,
-                            file : csxsEvent.data.file,
-                            path : result.path,
-                        });
-
-                        $("svg", clone).append($path.clone());
-
-                        Client.updatePathDataCallback(clone, {
-                            uuid : csxsEvent.data.uuid,
-                            file : csxsEvent.data.file,
-                            path : result.path,
-                        });
-                    })
-                    .fail(function(result) {
-                        Client.dump("Client.sendPathPointToAstui ajax call failed", "Client.sendPathPointToAstui ERROR");
-                        Client.write( Config.COMMON_LOG, "[Client.sendPathPointToAstui] " + result, true );
-                        console.error( "[Client.sendPathPointToAstui] " + result );
-                        throw new Error("[Client.sendPathPointToAstui] " + result);
+                    var newPathData = JSON.stringify({
+                        uuid : csxsEvent.data.uuid,
+                        path : result.path,
                     });
+
+                    csInterface.evalScript( 'Host.updatePathData(\'' + newPathData + '\')');
+                })
+                .fail(function(result) {
+                    Client.dump("Client.sendPathPointToAstui ajax call failed", "Client.sendPathPointToAstui ERROR");
+                    Client.write( Config.COMMON_LOG, "[Client.sendPathPointToAstui] " + result, true );
+                    console.error( "[Client.sendPathPointToAstui] " + result );
+                    throw new Error("[Client.sendPathPointToAstui] " + result);
                 });
             }
             else {
@@ -347,25 +306,16 @@ $(function() {
      * Update the path data for the selected item.
      * @param result
      */
-    Client.updatePathDataCallback = function($svg, newPathData) {
+    Client.updatePathDataCallback = function(newPathData) {
 
         Client.dump("Client.updatePathDataCallback started", "Client.updatePathDataCallback");
-
-        Client.write(
-            newPathData.file.replace(".svg", "-2.svg"),
-            xmlToString($svg),
-            true,
-            'SVG '
-        );
-
-        Client.dump( "New SVG file written", "SVG FILE" );
 
         var fileData = {
             uuid : newPathData.uuid,
             file : newPathData.file.replace(".svg", "-2.svg")
         };
 
-        csInterface.evalScript( 'Host.updatePathData(\'' + JSON.stringify(fileData) + '\')');
+        csInterface.evalScript( 'Host.updatePathData(\'' + JSON.stringify(newPathData) + '\')');
     };
 
     /**
@@ -606,27 +556,27 @@ $(function() {
         return (! isEmpty(Client.getStoredLicenseKey() ));
     };
 
-    /**
-     * Test if a value is empty.
-     * @param {*} data
-     * @returns {boolean}
-     */
-    function isEmpty(data) {
-        if (typeof(data) == 'number' || typeof(data) == 'boolean') {
-            return false;
-        }
-        if (typeof(data) == 'undefined' || data === null) {
-            return true;
-        }
-        if (typeof(data.length) != 'undefined') {
-            return data.length == 0;
-        }
-        var count = 0;
-        for (var i in data) {
-            if (data.hasOwnProperty(i)) count ++;
-        }
-        return count == 0;
-    }
+    // /**
+    //  * Test if a value is empty.
+    //  * @param {*} data
+    //  * @returns {boolean}
+    //  */
+    // function isEmpty(data) {
+    //     if (typeof(data) == 'number' || typeof(data) == 'boolean') {
+    //         return false;
+    //     }
+    //     if (typeof(data) == 'undefined' || data === null) {
+    //         return true;
+    //     }
+    //     if (typeof(data.length) != 'undefined') {
+    //         return data.length == 0;
+    //     }
+    //     var count = 0;
+    //     for (var i in data) {
+    //         if (data.hasOwnProperty(i)) count ++;
+    //     }
+    //     return count == 0;
+    // }
 
     /**
      * Coerce any type of selector to the object it references, returned as a jQuery object.
@@ -641,21 +591,7 @@ $(function() {
         return $o;
     }
 
-    /**
-     * Case-insensitive string comparison.
-     * @param aText
-     * @param bText
-     * @returns {boolean}
-     */
-    function strcmp(aText, bText) {
-        return aText.toLowerCase() == bText.toLowerCase();
-    }
-
     // Run now
-
-    // csInterface.evalScript('Host.init()', function(result) {
-    //     console.log(result == true ? 'Host.init() finished without errors' : result );
-    // });
 
     Client.getSettings();
     Client.init();
