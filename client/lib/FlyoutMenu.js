@@ -1,8 +1,8 @@
 /**
  * @author    Scott Lewis <scott@atomiclotus.net>
- * @copyright 2018 Scott Lewis
+ * @copyright 2018 Astute Graphics
  * @version   1.0.0
- * @url       http://github.com/iconifyit
+ * @url       https://astutegraphics.com
  * @url       https://atomiclotus.net
  *
  * ABOUT:

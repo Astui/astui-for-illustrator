@@ -1,5 +1,5 @@
 /**
- * @author    Astute Graphics <info@astutegraphics.com>
+ * @author    Scott Lewis <scott@atomiclotus.net>
  * @copyright 2018 Astute Graphics
  * @version   1.0.0
  * @url       https://astutegraphics.com
