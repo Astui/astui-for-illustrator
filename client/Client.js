@@ -184,7 +184,7 @@ $(function() {
      */
     Client.formatAstuiPayload = function(svgPathData, accuracy ) {
         return "path="    + svgPathData +
-            "&accuracy="  + accuracy +
+            "&tolerance="  + accuracy +
             "&api_token=" + Config.MY_API_KEY +
             "&decimal=1";
     };

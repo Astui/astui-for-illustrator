@@ -253,15 +253,25 @@ var Host = (function(Config) {
             theItem,
             pathDataObject;
 
-        _logger.info("[_updatePathData(pathData)] " + pathData);
+        //_logger.info("[_updatePathData(pathData)] " + pathData);
         try {
-            Utils.logger( " ******* Utils.dump(pathData); ******* " );
-            Utils.dump(pathData);
+            // Utils.logger( " ******* Utils.dump(pathData); ******* " );
+            // Utils.dump(pathData);
 
             if (pathDataObject = JSON.parse(pathData)) {
                 if (theItem = Utils.get(__GLOBALS, pathDataObject.uuid, false)) {
                     // setPathItemFromSVG(theItem, pathDataObject.path);
-                    theItem.setEntirePath(svgToPathPointArray(pathDataObject.path));
+                    try {
+                        // theItem.setEntirePath(svgToPathPointArray(pathDataObject.path));
+                        setPathItemFromSVG(theItem, pathDataObject.path);
+                        // var newPath = pathItemToSVG(theItem);
+                        // setPathItemFromSVG(theItem, newPath);
+                        // _logger.info("newPath : " + newPath);
+                        // _logger.info("newPath2 : " + pathItemToSVG(theItem));
+                    }
+                    catch(e) {
+                        throw "setEntirePath Error " + e.message;
+                    }
                 }
                 else {
                     throw new Error("[_updatePathData(pathData)] failed");
@@ -269,6 +279,7 @@ var Host = (function(Config) {
             }
         }
         catch(e) {
+            throw new Error(e);
             _logger.error("[_updatePathData(pathData)] " + e.message);
             return "[_updatePathData(pathData)] " + e.message;
         }
