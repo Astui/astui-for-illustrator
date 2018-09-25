@@ -22,38 +22,18 @@
  */
 
 /**
- * Log levels.
- * @type {{INFO: number, WARN: number, ERROR: number}}
- */
-var LogLevel = {
-    NONE  : 0,
-    INFO  : 1,
-    WARN  : 2,
-    ERROR : 3
-};
-
-/**
  * Create a new logger instance.
  * @param name
  * @param folder
  * @constructor
  */
-function Logger(name, folder, logLevel) {
-
-    if (typeof(logLevel) == 'undefined') {
-        logLevel = LogLevel.ERROR;
-    }
-
-    /**
-     * Set the log level.
-     */
-    this.logLevel = logLevel;
+function Logger(name, folder) {
 
     /**
      * Enable or disable logging.
      * @type {boolean}
      */
-    this.DEBUG = this.logLevel === 0 ? false : true ;
+    this.DEBUG = true ;
 
     /**
      * Default settings for the logger.
@@ -121,6 +101,14 @@ Logger.prototype = {
     },
 
     /**
+     * Set debug value.
+     * @param {boolean} value
+     */
+    setDebug: function(value) {
+        this.DEBUG = value;
+    },
+
+    /**
      * Date string to prefix log entries.
      * @param date
      * @returns {string}
@@ -143,7 +131,7 @@ Logger.prototype = {
      * @param message
      */
     info : function(message) {
-        this.log(message, this.types.INFO, LogLevel.INFO);
+        this.log(message, this.types.INFO);
     },
 
     /**
@@ -151,7 +139,7 @@ Logger.prototype = {
      * @param message
      */
     warn : function(message) {
-        this.log(message, this.types.WARN, LogLevel.WARN);
+        this.log(message, this.types.WARN);
     },
 
     /**
@@ -159,17 +147,15 @@ Logger.prototype = {
      * @param message
      */
     error : function(message) {
-        this.log(message, this.types.ERROR, LogLevel.ERROR);
+        this.log(message, this.types.ERROR);
     },
 
     /**
      * Add message to log.
      * @param message
      */
-    log : function(message, type, level) {
-        // if (! this.DEBUG) return;
-        // if (level < this.logLevel) return;
-
+    log : function(message, type) {
+        if (! this.DEBUG) return;
         this.write(
             this.file.absoluteURI,
             "[" + this.types[type] + "][" + new Date().toUTCString() + "] " + message

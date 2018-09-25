@@ -242,8 +242,6 @@ $(function() {
                 Client.dump("Start svgPathData", "svgPathData");
                 Client.dump(svgPathData, "svgPathData");
 
-                console.log("PATH ORIGINAL : " + svgPathData.svg);
-
                 thePayload = Client.formatSmartRemovePayload(
                     svgPathData.svg,
                     $("#tolerance").val()
@@ -258,7 +256,6 @@ $(function() {
                 console.log("End The PayLoad");
 
                 Client.dump(thePayload, "thePayload");
-
                 Client.dump("Client.sendPathPointToAstui make ajax call", "Make Ajax Call");
 
                 $.ajax({
@@ -273,21 +270,12 @@ $(function() {
                     }
                 })
                 .done(function(result) {
-
-                    Client.dump("Client.sendPathPointToAstui ajax call successful", "Client.sendPathPointToAstui");
-                    Client.dump(result, "Astui path result");
-
-                    var newPathData = JSON.stringify({
+                    Client.updatePathDataCallback({
                         uuid : csxsEvent.data.uuid,
                         path : result.path,
                     });
-
-                    csInterface.evalScript( 'Host.updatePathData(\'' + newPathData + '\')');
                 })
                 .fail(function(result) {
-                    Client.dump("Client.sendPathPointToAstui ajax call failed", "Client.sendPathPointToAstui ERROR");
-                    Client.write( Config.COMMON_LOG, "[Client.sendPathPointToAstui] " + result, true );
-                    console.error( "[Client.sendPathPointToAstui] " + result );
                     throw new Error("[Client.sendPathPointToAstui] " + result);
                 });
             }
@@ -307,15 +295,8 @@ $(function() {
      * @param result
      */
     Client.updatePathDataCallback = function(newPathData) {
-
-        Client.dump("Client.updatePathDataCallback started", "Client.updatePathDataCallback");
-
-        var fileData = {
-            uuid : newPathData.uuid,
-            file : newPathData.file.replace(".svg", "-2.svg")
-        };
-
-        csInterface.evalScript( 'Host.updatePathData(\'' + JSON.stringify(newPathData) + '\')');
+        newPathData = JSON.stringify(newPathData);
+        csInterface.evalScript( 'Host.updatePathData(\'' + newPathData + '\')');
     };
 
     /**
@@ -555,28 +536,6 @@ $(function() {
     Client.hasValidApiKey = function() {
         return (! isEmpty(Client.getStoredLicenseKey() ));
     };
-
-    // /**
-    //  * Test if a value is empty.
-    //  * @param {*} data
-    //  * @returns {boolean}
-    //  */
-    // function isEmpty(data) {
-    //     if (typeof(data) == 'number' || typeof(data) == 'boolean') {
-    //         return false;
-    //     }
-    //     if (typeof(data) == 'undefined' || data === null) {
-    //         return true;
-    //     }
-    //     if (typeof(data.length) != 'undefined') {
-    //         return data.length == 0;
-    //     }
-    //     var count = 0;
-    //     for (var i in data) {
-    //         if (data.hasOwnProperty(i)) count ++;
-    //     }
-    //     return count == 0;
-    // }
 
     /**
      * Coerce any type of selector to the object it references, returned as a jQuery object.

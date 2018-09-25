@@ -28,7 +28,7 @@
  */
 var Exporter = function(location) {
     this.location = location;
-    this.logger = logger || new Logger($.fileName, this.location);
+    this.logger   = logger || new Logger($.fileName, this.location);
 };
 
 /**

@@ -69,10 +69,6 @@ logger.info(logger.dateFormat());
 #include "JSON.jsx";
 #include "Helpers.jsx";
 #include "Utils.jsx";
-// #include "Configuration.jsx";
-#include "FileSystem.jsx";
-#include "MenuCommand.jsx";
-// #include "Exporter.jsx";
 
 /**
  * Supported Ai Object types for this script.
@@ -136,22 +132,11 @@ var counter = 0;
  */
 var Host = (function(Config, logger) {
 
-    _getSettings();
-
     /**
      * The local scope logger object.
      * @type {Logger}
      */
     var _logger = logger;
-
-    /**
-     * The exporter class.
-     * @type {Exporter}
-     * @private
-     */
-    // var _exporter = new Exporter(
-    //     pack(Config.DOCUMENTS, Config.APP_NAME, '/')
-    // );
 
     /**
      * Prompt user for API_KEY.
@@ -499,26 +484,25 @@ var Host = (function(Config, logger) {
      * @private
      */
     function _getSettings() {
-        var Settings = Utils.read_json(
-            _GLOBALS.SETTINGS_FILE_PATH
-        );
-        Config.API_ENDPOINT = Settings.API_ENDPOINT;
-        Config.API_KEY      = Settings.API_KEY;
-        Config.COMMON_LOG   = Settings.COMMON_LOG;
-        Config.DEBUG        = Settings.DEBUG;
-        Utils.DEBUG         = Settings.DEBUG;
-        Settings.DOCUMENTS  = Config.DOCUMENTS;
-        Settings.APP_NAME   = Config.APP_NAME;
-        return JSON.stringify(Settings);
-    };
+        try {
+            var Settings = Utils.read_json(
+                _GLOBALS.SETTINGS_FILE_PATH
+            );
+            Config.API_ENDPOINT = Settings.API_ENDPOINT;
+            Config.API_KEY      = Settings.API_KEY;
+            Config.COMMON_LOG   = Settings.COMMON_LOG;
+            Config.DEBUG        = Settings.DEBUG;
+            Utils.DEBUG         = Settings.DEBUG;
+            Settings.DOCUMENTS  = Config.DOCUMENTS;
+            Settings.APP_NAME   = Config.APP_NAME;
 
-    /**
-     * Execute a Menu Command.
-     * @returns {MenuCommand}
-     * @private
-     */
-    function _doMenuCommand(kCommandStr) {
-        return new MenuCommand(kCommandStr, true);
+            _logger.setDebug(Settings.DEBUG);
+
+            return JSON.stringify(Settings);
+        }
+        catch(e) {
+            throw new Error("Error reading settings file : " + e.message);
+        }
     };
 
     /**
@@ -544,13 +528,15 @@ var Host = (function(Config, logger) {
      */
     function _init() {
         var errorMessage;
+
         try {
+            _getSettings();
             Utils.rmdir(Config.LOGFOLDER, "*.svg");
             Utils.rmdir(Config.LOGFOLDER, "*.log");
         }
         catch(e) {
             errorMessage = "Could not clear the log folder - " + e.message;
-            Utils.logger(errorMessage);
+            Host.dump(errorMessage, "Host.init() Error");
             throw new Error(errorMessage);
         }
         return "Host._init() completed without errors";
@@ -636,15 +622,6 @@ var Host = (function(Config, logger) {
          */
         openUrl: function(url) {
             _openURL(url);
-        },
-
-        /**
-         * Execute a Menu Command.
-         * @param kCommandStr
-         * @returns {MenuCommand}
-         */
-        doMenuCommand: function(kCommandStr) {
-            return _doMenuCommand(kCommandStr);
         },
 
         /**
@@ -736,3 +713,5 @@ var Host = (function(Config, logger) {
     }
 
 })(Config, logger);
+
+Host.init();

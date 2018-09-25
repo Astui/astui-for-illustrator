@@ -341,21 +341,6 @@ function trimNewLines(theText) {
 }
 
 /**
- * Remove empty group nodes from SVG.
- * @param   {XmlDocument} $svg
- * @returns {XmlDocument}
- */
-function removeEmptyNodes($svg) {
-    $("g", $svg).each(function(i) {
-        var $group = $(this);
-        if ($.trim($group.text()) == "") {
-            $group.remove();
-        }
-    });
-    return $svg;
-}
-
-/**
  * Set the PathPoints in an AI PathItem from SVG path value.
  * @param {PathItem}    path
  * @param {string}      svg
