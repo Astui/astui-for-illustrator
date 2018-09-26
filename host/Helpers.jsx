@@ -115,15 +115,15 @@ function isNumber(theItem) {
 /**
  * Determine if a value is true-ish.
  * USE ONLY with strings, ints, and booleans.
- * @param what
+ * @param   {string|boolean|integer} what
  * @returns {boolean}
  */
 function isTrue(what) {
 
-    if (isTrue === true)     return true;
+    if (what === true) return true;
 
     if (isString(what)) {
-        var truish = [
+        var variants = [
             'yes', 'oui', 'ja', 'da',
             'si', 'yeah', 'yep', 'yup',
             'fuck yes', 'fuck yeah', 'fuckin a',
@@ -131,11 +131,38 @@ function isTrue(what) {
         ];
         what = what.toLowerCase();
         if (what === "true")     return true;
-        if (truish.indexOf(what) != -1) return true;
+        if (variants.indexOf(what) != -1) return true;
     }
 
     if (! isNaN(what)) {
         if (parseInt(what) > 0) return true;
+    }
+
+    return false;
+}
+
+/**
+ * Determine if a value is false-ish.
+ * USE ONLY with strings, ints, and booleans.
+ * @param   {string|boolean|integer} what
+ * @returns {boolean}
+ */
+function isFalse(what) {
+
+    if (what === false) return true;
+
+    if (isString(what)) {
+        var variants = [
+            'no', 'non', 'nein', 'nyet',
+            'nope', 'nah', 'not a chance', 'nay',
+            'fuck no', 'false', 'no way', '0'
+        ];
+        what = what.toLowerCase();
+        if (variants.indexOf(what) != -1) return true;
+    }
+
+    if (! isNaN(what)) {
+        if (parseInt(what) === 0) return true;
     }
 
     return false;

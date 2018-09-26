@@ -411,6 +411,34 @@ Utils.read_json = function(theFile) {
 }
 
 /**
+ * Test if a file exists.
+ * @param theFilePath
+ * @returns {*}
+ */
+Utils.isFile = function(theFilePath) {
+    try {
+        return (new File(theFilePath)).exists;
+    }
+    catch(e) {
+        return false;
+    }
+};
+
+/**
+ * Test if a folder exists.
+ * @param theFolderPath
+ * @returns {*}
+ */
+Utils.isFolder = function(theFolderPath) {
+    try {
+        return (new Folder(theFolderPath)).exists;
+    }
+    catch(e) {
+        return false;
+    }
+};
+
+/**
  * Remove the contents of a directory by file type.
  * This method does NOT delete the directory, only the contents.
  * @param {string} dirPath  The directory to clear.

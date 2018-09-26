@@ -174,16 +174,22 @@ $(function() {
 
             $buttonSRP.mouseup(function(evt) {
                 evt.preventDefault();
-                console.log("Client.smartRemovePoints()");
                 Client.getSettings();
+                if (isFalse(Config.API_KEY)) {
+                    Client.alert('An API Token is required to use this extension.');
+                    return;
+                }
                 Client.smartRemovePoints();
                 $buttonSRP.blur();
             });
 
             $buttonMTT.mouseup(function(evt) {
                 evt.preventDefault();
-                console.log("Client.moveToTangents()");
                 Client.getSettings();
+                if (isFalse(Config.API_KEY)) {
+                    Client.alert('An API Token is required to use this extension.');
+                    return;
+                }
                 Client.moveToTangents();
                 $buttonMTT.blur();
             });

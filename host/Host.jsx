@@ -49,7 +49,6 @@ var Config = {
     LOGFOLDER        : Folder.myDocuments + '/astui-for-illustrator/logs',
     API_KEY          : 'YOUR_API_KEY',
     API_ENDPOINT     : 'ASTUI_API_ENDPIONT',
-    COMMON_LOG       : Folder.myDocuments + '/astui-for-illustrator/logs/common.log',
     DEBUG            : true
 };
 
@@ -479,18 +478,42 @@ var Host = (function(Config, logger) {
     };
 
     /**
+     * Initialize the settings file.
+     * @private
+     */
+    function _initSettings() {
+        var settings = {
+            APP_NAME         : 'astui-for-illustrator',
+            USER             : $.getenv('USER'),
+            HOME             : $.getenv('HOME'),
+            DOCUMENTS        : Folder.myDocuments +  '',
+            LOGFOLDER        : Folder.myDocuments + '/astui-for-illustrator/logs',
+            API_KEY          : false,
+            API_ENDPOINT     : 'https://dev.astui.astute.graphics/api/v1/',
+            DEBUG            : true
+        };
+        if (! Utils.isFile(_GLOBALS.SETTINGS_FILE_PATH)) {
+            Utils.write(
+                _GLOBALS.SETTINGS_FILE_PATH,
+                JSON.stringify(settings),
+                true, 'JSON'
+            );
+        }
+    }
+
+    /**
      * Get settings JSON from file.
      * @returns {*}
      * @private
      */
     function _getSettings() {
+        _initSettings();
         try {
             var Settings = Utils.read_json(
                 _GLOBALS.SETTINGS_FILE_PATH
             );
             Config.API_ENDPOINT = Settings.API_ENDPOINT;
             Config.API_KEY      = Settings.API_KEY;
-            Config.COMMON_LOG   = Settings.COMMON_LOG;
             Config.DEBUG        = Settings.DEBUG;
             Utils.DEBUG         = Settings.DEBUG;
             Settings.DOCUMENTS  = Config.DOCUMENTS;
