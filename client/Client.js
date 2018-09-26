@@ -64,8 +64,10 @@ var MENU_ITEMS = {
  * }}
  */
 var HTTP_CODES = {
+    200 : "Astui says: Success!",
     404 : "Astui says: Bad Reqeust - Astui did not recognize the request.",
     401 : "Astui says: Unauthorized - Make sure your API Token is correct.",
+    402 : "Astui says: A subscriptions is required to perform that action",
     403 : "Astui says: Forbidden - You are not allowed to do that.",
     418 : "Astui says: I'm a teapot (short and stout).",
     429 : "Astui says: Too many requests - Slow down. You're requesting too many paths.",
@@ -299,11 +301,18 @@ $(function() {
                         "Accept"        : "application/json, text/plain, */*"
                     },
                     statusCode: {
+                        200: function() {
+                            console.log(HTTP_CODES[200]);
+                            Client.dump(HTTP_CODES[404], "Astui XHR Status");
+                        },
                         404: function() {
                             Client.alert(HTTP_CODES[404]);
                         },
                         401: function() {
                             Client.alert(HTTP_CODES[401]);
+                        },
+                        402: function() {
+                            Client.alert(HTTP_CODES[402]);
                         },
                         403: function() {
                             Client.alert(HTTP_CODES[403]);
