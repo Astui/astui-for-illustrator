@@ -51,9 +51,33 @@ var MENU_ITEMS = {
     ENTER_TOKEN  : "enterApiToken"
 };
 
+/**
+ * Possible Astui Ajax status codes.
+ * @type {{
+ *     "404": string,
+ *     "401": string,
+ *     "403": string,
+ *     "418": string,
+ *     "429": string,
+ *     "500": string,
+ *     "503": string
+ * }}
+ */
+var HTTP_CODES = {
+    404 : "Astui says: Bad Reqeust - Astui did not recognize the request.",
+    401 : "Astui says: Unauthorized - Make sure your API Token is correct.",
+    403 : "Astui says: Forbidden - You are not allowed to do that.",
+    418 : "Astui says: I'm a teapot (short and stout).",
+    429 : "Astui says: Too many requests - Slow down. You're requesting too many paths.",
+    500 : "Astui says: Internal Server Error - We had a problem on the server. Please try again later.",
+    503 : "Astui says: Service Unavailable - We are temporarily offline for maintenance. Please try again later."
+};
+
 $(function() {
 
     var csInterface = new CSInterface();
+
+    csInterface.evalScript('Host.initSettingsFile()');
 
     /**
      * Get stored settings from Host.
@@ -273,6 +297,29 @@ $(function() {
                         "Content-Type"  : "application/x-www-form-urlencoded",
                         "Cache-Control" : "no-cache",
                         "Accept"        : "application/json, text/plain, */*"
+                    },
+                    statusCode: {
+                        404: function() {
+                            Client.alert(HTTP_CODES[404]);
+                        },
+                        401: function() {
+                            Client.alert(HTTP_CODES[401]);
+                        },
+                        403: function() {
+                            Client.alert(HTTP_CODES[403]);
+                        },
+                        418: function() {
+                            Client.alert(HTTP_CODES[418]);
+                        },
+                        429: function() {
+                            Client.alert(HTTP_CODES[429]);
+                        },
+                        500: function() {
+                            Client.alert(HTTP_CODES[500]);
+                        },
+                        503: function() {
+                            Client.alert(HTTP_CODES[503]);
+                        }
                     }
                 })
                 .done(function(result) {

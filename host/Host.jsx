@@ -97,6 +97,12 @@ var _GLOBALS = {
     ExternalObjectLib : false,
 
     /**
+     * The settings folder.
+     * @type {string}
+     */
+    SETTINGS_FOLDER_PATH : Folder.myDocuments + "/astui-for-illustrator",
+
+    /**
      * The settings file path.
      * @type {string}
      */
@@ -481,7 +487,7 @@ var Host = (function(Config, logger) {
      * Initialize the settings file.
      * @private
      */
-    function _initSettings() {
+    function _initSettingsFile() {
         var settings = {
             APP_NAME         : 'astui-for-illustrator',
             USER             : $.getenv('USER'),
@@ -492,6 +498,11 @@ var Host = (function(Config, logger) {
             API_ENDPOINT     : 'https://dev.astui.astute.graphics/api/v1/',
             DEBUG            : true
         };
+
+        // Make sure the folder exists.
+        Utils.folder(_GLOBALS.SETTINGS_FOLDER_PATH);
+
+        // Create the initial settings file.
         if (! Utils.isFile(_GLOBALS.SETTINGS_FILE_PATH)) {
             Utils.write(
                 _GLOBALS.SETTINGS_FILE_PATH,
@@ -507,7 +518,7 @@ var Host = (function(Config, logger) {
      * @private
      */
     function _getSettings() {
-        _initSettings();
+        _initSettingsFile();
         try {
             var Settings = Utils.read_json(
                 _GLOBALS.SETTINGS_FILE_PATH
@@ -725,6 +736,13 @@ var Host = (function(Config, logger) {
             Utils.logger("\n\n");
 
             return true;
+        },
+
+        /**
+         * Initialize the settings file.
+         */
+        initSettingsFile : function() {
+            _initSettingsFile();
         },
 
         /**
