@@ -763,6 +763,18 @@ Utils.updateProgressMessage = function(message) {
 };
 
 /**
+ * Updates the progress bar.
+ * @param message
+ * @returns void(0)
+ */
+Utils.progressBarText = function(message) {
+    Utils.progress.pnl.progBarLabel.text = message;
+    $.sleep(10);
+    Utils.progress.update();
+};
+
+
+/**
  * Alias for localize function.
  * @param str
  * @param vars

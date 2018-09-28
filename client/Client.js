@@ -511,12 +511,11 @@ $(function() {
      */
     Client.initFlyoutMenu = function() {
         var Menu = new FlyoutMenu();
-        Menu.add( MENU_ITEMS.ENTER_TOKEN,  'Enter API Token',           true, false, false );
-        Menu.add( MENU_ITEMS.GET_TOKEN,    'Get a API Token',           true, false, false );
+        Menu.add( MENU_ITEMS.ENTER_TOKEN,  'Enter Astui API Token',             true, false, false );
+        Menu.add( MENU_ITEMS.GET_TOKEN,    'Get Astui API Token',               true, false, false );
         Menu.divider();
-        Menu.add( MENU_ITEMS.ABOUT_PAGE,   'About Astute Graphics',     true, false, false );
-        Menu.add( MENU_ITEMS.HOME_PAGE,    'Astute Graphics Home Page', true, false, false );
-        Menu.add( MENU_ITEMS.SHOP_PLUGINS, 'Shop for Plugins',          true, false, false );
+        Menu.add( MENU_ITEMS.ABOUT_PAGE,   'About the Astui Service',           true, false, false );
+        Menu.add( MENU_ITEMS.SHOP_PLUGINS, 'Discover More Illustrator Plugins', true, false, false );
         Menu.setHandler( Client.flyoutMenuClickedHandler );
         Menu.build();
     };
@@ -528,22 +527,15 @@ $(function() {
     Client.flyoutMenuClickedHandler = function(event) {
         switch (event.data.menuId) {
             case MENU_ITEMS.GET_TOKEN :
-                Client.openUrl(
-                    'mailto:enquiries@astutegraphics.com?subject=Astui Enquiry&' +
-                    'body=Please send me information on how to obtain an ASTUI API token.'
-                );
+                Client.openUrl('https://astui.tech');
                 break;
 
             case MENU_ITEMS.ABOUT_PAGE :
-                Client.openUrl( 'https://astutegraphics.com/about-us/' );
-                break;
-
-            case MENU_ITEMS.HOME_PAGE :
-                Client.openUrl( 'https://astutegraphics.com/' );
+                Client.openUrl( 'https://astui.tech' );
                 break;
 
             case MENU_ITEMS.SHOP_PLUGINS :
-                Client.openUrl( 'https://astutegraphics.com/bundles/' );
+                Client.openUrl( 'https://astutegraphics.com' );
                 break;
 
             case MENU_ITEMS.ENTER_TOKEN :

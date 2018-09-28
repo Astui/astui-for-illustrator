@@ -152,7 +152,7 @@ var Host = (function(Config, logger) {
         var userInput, wasSaved;
 
         try {
-            userInput = prompt('Please enter your Astute Graphics API Token', Config.API_KEY);
+            userInput = prompt('Please enter your Astui API Token', Config.API_KEY);
 
             if (typeof(userInput) != 'undefined' && Utils.trim(userInput) != '') {
                 Config.API_KEY = Utils.trim(userInput);
