@@ -1,4 +1,4 @@
-# Astute Graphics API Demo Extension
+# Astui for Adobe Illustration
 This CEP extension for Adobe Illustrator demonstrates how to build extensions to interact with the Astui API for _Smart Remove Point_ and _Move Points to Tangents_.
 
 ## Installation
