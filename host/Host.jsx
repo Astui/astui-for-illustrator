@@ -495,7 +495,7 @@ var Host = (function(Config, logger) {
             DOCUMENTS        : Folder.myDocuments +  '',
             LOGFOLDER        : Folder.myDocuments + '/astui-for-illustrator/logs',
             API_KEY          : false,
-            API_ENDPOINT     : 'https://dev.astui.astute.graphics/api/v1/',
+            API_ENDPOINT     : 'https://astui.tech/api/v1/',
             DEBUG            : true
         };
 
