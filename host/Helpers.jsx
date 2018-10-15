@@ -473,7 +473,7 @@ function svgToPathPointArray(svg)
         point.anchor = [parseFloat(segs[4]), parseFloat(segs[5])];
         result.push(point);
     }
-    if(svg.indexOf("Z"))
+    if(svg.indexOf("Z") >= 0)
     {
         result[0].leftDirection = point.leftDirection;
         point = {};
@@ -482,6 +482,12 @@ function svgToPathPointArray(svg)
             result.pop();
         }
     }
+    else
+    {
+       result[0].leftDirection = result[0].anchor;
+       result[result.length-1].rightDirection = result[result.length-1].anchor;
+    }
+    
     return result;
 
 }
