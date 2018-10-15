@@ -121,10 +121,6 @@ var _GLOBALS = {
     pathItems : []
 };
 
-/**
- * The global document object.
- */
-var doc = app.activeDocument;
 
 Utils.DEBUG = true;
 Utils.dump({name: 'CONFIG',   value: Utils.inspect(Config, '') });
@@ -334,7 +330,8 @@ var Host = (function(Config, logger) {
     function _getSelectedPathItems() {
 
         var uuid,
-            pathItems = doc.pathItems;
+            //pathItems = doc.pathItems;
+            pathItems = app.activeDocument.pathItems;
 
         _GLOBALS.selected  = [];
         _GLOBALS.pathItems = [];
