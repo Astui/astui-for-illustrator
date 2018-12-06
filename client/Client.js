@@ -261,7 +261,7 @@ $(function() {
             csxsEvent = JSON.parse(csxsEvent);
         }
 
-        endPointName = 'ssr';
+        endPointName = 'spr';
         if (csxsEvent.type == 'moveToTangents') {
             endPointName = 'tangencies';
         }
