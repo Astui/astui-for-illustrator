@@ -1,11 +1,11 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <ExtensionManifest
         ExtensionBundleId="com.astute.astui-illustrator"
-        ExtensionBundleVersion="1.0.0"
+        ExtensionBundleVersion="1.0.1"
         Version="7.0"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <ExtensionList>
-        <Extension Id="com.astute.astui-illustrator.panel" Version="1.0.0" />
+        <Extension Id="com.astute.astui-illustrator.panel" Version="1.0.1" />
     </ExtensionList>
     <ExecutionEnvironment>
         <HostList>
